@@ -1,0 +1,29 @@
+﻿# ---- 编译产物 ----
+*.exe
+*.pdb
+*.obj
+dist/
+
+# ---- 运行期数据（绝对不能提交）----
+LevelBand/
+NeteaseVolumeHUD/
+*.ini
+songs.ini
+log.txt
+config.ini
+
+# ---- 开发过程产物 ----
+probe*/
+mockup/
+icon_work/
+shot_tmp/
+backup-*/
+*.log
+
+# ---- 系统 / 编辑器 ----
+Thumbs.db
+desktop.ini
+.vs/
+.idea/
+*.user
+*.suo
