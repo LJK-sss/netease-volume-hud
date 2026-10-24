@@ -8,6 +8,9 @@ namespace NvHud
     {
         // 窗口扩展样式
         public const int WS_EX_TOPMOST = 0x00000008;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern uint GetGuiResources(IntPtr hProcess, uint uiFlags);
         public const int WS_EX_TOOLWINDOW = 0x00000080;
         public const int WS_EX_LAYERED = 0x00080000;
         public const int WS_EX_NOACTIVATE = 0x08000000;

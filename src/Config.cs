@@ -188,5 +188,25 @@ namespace NvHud
         {
             try { File.WriteAllText(Config.LogPath, "", System.Text.Encoding.UTF8); } catch { }
         }
+
+        /// <summary>启动时把上一次的日志留存为 log.prev.txt，再清空当前日志。
+        /// 这样即使进程被静默终止，也能看到它最后记录到哪一步。</summary>
+        public static void Rotate()
+        {
+            try
+            {
+                if (File.Exists(Config.LogPath))
+                {
+                    var fi = new FileInfo(Config.LogPath);
+                    if (fi.Length > 0)
+                    {
+                        string prev = Path.Combine(Config.Dir, "log.prev.txt");
+                        try { File.Copy(Config.LogPath, prev, true); } catch { }
+                    }
+                }
+            }
+            catch { }
+            Reset();
+        }
     }
 }

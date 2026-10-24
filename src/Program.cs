@@ -46,6 +46,7 @@ namespace NvHud
         private readonly Timer _tick = new Timer();
         private readonly Timer _topmost = new Timer();   // 15 秒重申一次置顶（避免截图时频繁跳出）
         private readonly Timer _ramp = new Timer();
+        private readonly Timer _hb = new Timer();      // 2 分钟一次心跳（内存/句柄趋势，排查静默退出）
 
         private string _title = "";
 
@@ -106,7 +107,7 @@ namespace NvHud
             _overlay.MenuRequested += ShowMenu;
             BuildMenu();
             _overlay.PositionChanged += SavePosition;
-            _overlay.ExitRequested += delegate { Application.Exit(); };
+            _overlay.ExitRequested += delegate { Log.W("退出: 点了 × 按钮"); Application.Exit(); };
             _overlay.SettingsRequested += TogglePanel;
             // 弹出面板/菜单可见时，小窗不再抢占 Z 序
             _overlay.PopupVisible = delegate { return (_panel != null && _panel.Visible) || (_menu != null && _menu.Visible); };
@@ -121,6 +122,12 @@ namespace NvHud
             _ramp.Tick += OnRampTick;
 
             _tick.Start();
+
+            // 心跳：记录内存与 GDI/USER 句柄数，便于发现泄漏或确认"最后活到什么时候"
+            LogHeartbeat();
+            _hb.Interval = 120000;   // 2 分钟
+            _hb.Tick += delegate { LogHeartbeat(); };
+            _hb.Start();
 
             // 15 秒重申一次置顶：比原来 2 秒宽松，微信截图时不会频繁跳出来挡住画面
             _topmost.Interval = 15000;
@@ -784,7 +791,7 @@ namespace NvHud
                 _cfg.Save();
                 RefreshMenu();
             };
-            _menu.ExitRequested += delegate { Application.Exit(); };
+            _menu.ExitRequested += delegate { Log.W("退出: 右键菜单里选了退出"); Application.Exit(); };
         }
 
         private void SyncMenuState()
@@ -868,6 +875,20 @@ namespace NvHud
 
         // 全局热键按用户要求移除：会抢占其它程序的组合键，且用户不常用。
 
+
+        private void LogHeartbeat()
+        {
+            try
+            {
+                var pr = Process.GetCurrentProcess();
+                uint gdi = Native.GetGuiResources(pr.Handle, 0);
+                uint usr = Native.GetGuiResources(pr.Handle, 1);
+                Log.W(string.Format("心跳 内存={0}MB GDI={1} USER={2} 线程={3} 歌={4} 音量={5}%",
+                    pr.WorkingSet64 / 1048576, gdi, usr, pr.Threads.Count, _title,
+                    (int)Math.Round(CurrentSession() * 100f)));
+            }
+            catch (Exception ex) { Log.W("心跳异常: " + ex.Message); }
+        }
 
         public void Dispose()
         {
@@ -997,7 +1018,22 @@ namespace NvHud
                     return;
                 }
 
-                Log.Reset();
+                // 任何未处理异常都写进日志，避免"静默消失"
+                Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+                Application.ThreadException += delegate(object s, ThreadExceptionEventArgs e)
+                {
+                    Log.W("!!! UI 线程未处理异常: " + e.Exception);
+                };
+                AppDomain.CurrentDomain.UnhandledException += delegate(object s, UnhandledExceptionEventArgs e)
+                {
+                    Log.W("!!! 未处理异常 (IsTerminating=" + e.IsTerminating + "): " + e.ExceptionObject);
+                };
+                AppDomain.CurrentDomain.ProcessExit += delegate
+                {
+                    Log.W("=== ProcessExit 事件（进程即将结束）===");
+                };
+
+                Log.Rotate();   // 保留上一次日志为 log.prev.txt
                 Log.W("=== LevelBand 启动 ===");
 
                 Application.EnableVisualStyles();
@@ -1006,8 +1042,9 @@ namespace NvHud
                 var app = new App();
                 app.Start();
                 app.AttachShowSignal(showSignal);
-                Application.ApplicationExit += delegate { app.Dispose(); };
+                Application.ApplicationExit += delegate { Log.W("=== ApplicationExit 事件 ==="); app.Dispose(); };
                 Application.Run();
+                Log.W("=== LevelBand 正常退出（消息循环结束）===");
             }
         }
 
