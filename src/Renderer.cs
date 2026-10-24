@@ -16,6 +16,7 @@ namespace NvHud
         public string Title = "";
         public float LoudDb = float.NaN;   // 当前曲目实测响度（P80），NaN 表示暂无
         public float TitleOffset = 0f;   // 长标题滚动偏移（逻辑像素）
+        public bool ShowControls = false;   // 悬停时显示菜单/关闭按钮
     }
 
     internal static class Renderer
@@ -109,7 +110,7 @@ namespace NvHud
             // 卡片底
             using (var cp = Round(0, 0, w, h, r))
             {
-                using (var fill = new SolidBrush(off ? C(24, 24, 28, 235) : (hover ? C(33, 33, 40, 246) : C(22, 22, 27, 238))))
+                using (var fill = new SolidBrush(off ? C(24, 24, 28, 235) : ((st.ShowControls ? C(33, 33, 40, 246) : C(28, 28, 34, 244)))))
                     g.FillPath(fill, cp);
 
                 // 顶部高光
@@ -282,7 +283,7 @@ namespace NvHud
                 }
             }
             // 参数按钮（三条滑杆），只在悬停时出现，位于 × 左侧
-            if (!off && hover)
+            if (!off && st.ShowControls)
             {
                 float gx = w - 40f, gy = 17f;
                 int ga = 190;
@@ -302,12 +303,12 @@ namespace NvHud
                 }
             }
             // 关闭按钮：只在悬停展开时出现（位置固定，不会让鼠标追着跑）
-            if (!off && hover)
+            if (!off && st.ShowControls)
             {
                 float ccx = w - 15f;
                 float ccy = 17f;
                 float half = 5.2f;
-                int alpha = hover ? 205 : 90;
+                int alpha = 210;
                 using (var pen = new Pen(C(255, 255, 255, alpha), 1.15f))
                 {
                     pen.StartCap = LineCap.Round;

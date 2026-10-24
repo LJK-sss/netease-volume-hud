@@ -16,7 +16,6 @@ namespace NvHud
         private const int GWL_EXSTYLE = -20;
 
         private readonly LayeredSurface _surface = new LayeredSurface();
-        private readonly Timer _anim;
         // 长标题滚动（仅悬停且文字溢出时启用，30fps）
         private readonly Timer _marquee = new Timer();
         private float _marqueePos;
@@ -28,7 +27,7 @@ namespace NvHud
 
         private readonly Timer _leaveGuard;
 
-        private float _animT;          // 0 = 常态, 1 = 展开
+        private float _animT = 1f;    // 永久展开（不再做高度动画）
         private bool _hover;
         private bool _draggingLeft;
         private bool _moving;
@@ -71,9 +70,6 @@ namespace NvHud
             DoubleBuffered = false;
             SetStyle(ControlStyles.Opaque, true);
 
-            _anim = new Timer();
-            _anim.Interval = 15;
-            _anim.Tick += new EventHandler(AnimTick);
 
             _leaveGuard = new Timer();
             _leaveGuard.Interval = 120;
@@ -177,7 +173,7 @@ namespace NvHud
             if (Handle == IntPtr.Zero || !Visible) return;
 
             float scale = BaseScale;
-            bool hoverNow = _animT > 0.5f;
+            bool hoverNow = true;                 // 卡片永久保持展开布局
 
             // 展开时高度按动画插值
             float hLogical = Renderer.H_NORMAL + (Renderer.H_HOVER - Renderer.H_NORMAL) * _animT;
@@ -196,6 +192,7 @@ namespace NvHud
             st.Title = _title;
             st.LoudDb = _loudDb;
             st.TitleOffset = _marqueePos;
+            st.ShowControls = _hover;             // 只有悬停时才画菜单/关闭按钮
 
             // 位置与尺寸
             if (!_posReady) { _wx = Location.X; _wy = Location.Y; _posReady = true; }
@@ -229,6 +226,7 @@ namespace NvHud
             forced.Title = st.Title;
             forced.LoudDb = st.LoudDb;
             forced.TitleOffset = st.TitleOffset;
+            forced.ShowControls = st.ShowControls;
 
             // 以目标尺寸为画布，绘制后若中间尺寸更小则整体缩放，保证不裁切
             SizeF target = Renderer.LogicalSize(st.Hover);
@@ -319,7 +317,7 @@ namespace NvHud
                 int futureH = (int)(Renderer.H_HOVER * scale);
                 _anchorBottom = (_wy + futureH) > scr.WorkingArea.Bottom;
             }
-            _anim.Start();
+            Render();   // 尺寸不再变，只需重绘（决定按钮是否出现）
             if (on) StartMarquee(); else StopMarquee();
         }
 
@@ -389,22 +387,6 @@ namespace NvHud
             _marqueePos = u * _marqueeMax;
             Render();
         }
-        private void AnimTick(object sender, EventArgs e)
-        {
-            float target = _hover ? 1f : 0f;
-            float dt = 0.22f;
-            if (Math.Abs(_animT - target) <= dt)
-            {
-                _animT = target;
-                _anim.Stop();
-            }
-            else
-            {
-                _animT += (target > _animT) ? dt : -dt;
-            }
-            Render();
-        }
-
         private float BarStartX
         {
             get
@@ -444,7 +426,7 @@ namespace NvHud
 
         private bool IsOnGear(Point p)
         {
-            if (_animT < 0.7f) return false;
+            if (!_hover) return false;   // 按钮只在悬停时可见，也就只在悬停时可点
             float s = BaseScale;
             float lx = p.X / s, ly = p.Y / s;
             return lx >= Renderer.W_HOVER - 52f && lx <= Renderer.W_HOVER - 28f && ly >= 3f && ly <= 30f;
@@ -665,7 +647,6 @@ namespace NvHud
         {
             if (disposing)
             {
-                _anim.Dispose();
                 _leaveGuard.Dispose();
                 SetHotkeys(false);
                 _surface.Dispose();

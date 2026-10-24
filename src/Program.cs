@@ -1017,18 +1017,18 @@ namespace NvHud
             float[] scales = new float[] { 1f, 2f };
             foreach (float sc in scales)
             {
-                RenderState(dir, "normal", sc, false, false, false, 42, "", -27.8f);
+                RenderState(dir, "normal", sc, false, false, false, 42, "灰色轨迹 - Beyond", -27.8f);
                 RenderState(dir, "hover", sc, true, false, false, 42, "灰色轨迹 - Beyond", -27.3f);
-                RenderState(dir, "mute", sc, false, true, false, 42, "", -27.3f);
-                RenderState(dir, "offline", sc, false, false, true, 0, "", float.NaN);
+                RenderState(dir, "mute", sc, false, true, false, 42, "灰色轨迹 - Beyond", -27.3f);
+                RenderState(dir, "offline", sc, false, false, true, 0, "灰色轨迹 - Beyond", float.NaN);
             }
             Log.W("render -> " + dir);
         }
 
-        private static void RenderState(string dir, string name, float scale, bool hover,
+        private static void RenderState(string dir, string name, float scale, bool controls,
             bool mute, bool offline, int vol, string title, float loudDb)
         {
-            SizeF logical = Renderer.LogicalSize(hover);
+            SizeF logical = Renderer.LogicalSize(true);   // 卡片永久展开
             int w = (int)Math.Round(logical.Width * scale);
             int h = (int)Math.Round(logical.Height * scale);
             int pad = 24;
@@ -1043,12 +1043,13 @@ namespace NvHud
 
                 var st = new UiState();
                 st.Scale = scale;
-                st.Hover = hover;
+                st.Hover = true;
                 st.Muted = mute;
                 st.Offline = offline;
                 st.Volume = vol;
                 st.Title = title;
                 st.LoudDb = loudDb;
+                st.ShowControls = controls;
 
                 var save = g.Save();
                 g.TranslateTransform(pad, pad);

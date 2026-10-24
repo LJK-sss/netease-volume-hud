@@ -34,7 +34,7 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 
 ### 截图
 
-| 常态 | 悬停展开 |
+| 常态（一直显示曲目名） | 悬停（多出菜单和关闭按钮） |
 |---|---|
 | ![](screenshots/card.png) | ![](screenshots/card-hover.png) |
 
