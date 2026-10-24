@@ -20,6 +20,7 @@ namespace NvHud
         private AudioSession _session;
         private ProcessCapture _cap;
         private uint _capturePid;
+        private DateTime _lastPidCheck = DateTime.MinValue;   // 绑定的进程是否还活着
         private DateTime _lastCapTry = DateTime.MinValue;
         private AutoGain _gain;
         private readonly Timer _audioTimer = new Timer();
@@ -264,6 +265,29 @@ namespace NvHud
         {
             try
             {
+                // 会话健康检查：网易云退出/重启后 pid 会变，而它留下的 COM 会话不会立刻失效
+                //（GetMasterVolume 依旧返回成功），只靠 IsAlive 会永久绑在死会话上。
+                // 这里改为每 5 秒重新枚举一次会话、比较 pid——不依赖进程句柄（本机拿不到 cloudmusic 的进程句柄）。
+                if (_session != null && (DateTime.Now - _lastPidCheck).TotalSeconds > 5)
+                {
+                    _lastPidCheck = DateTime.Now;
+                    AudioSession fresh = AudioSession.Find(ProccessName);
+                    if (fresh == null)
+                    {
+                        Log.W("会话已消失，解绑 (pid=" + _session.Pid + ")");
+                        if (_cap != null && _cap.IsRunning) { _cap.Stop(); Log.W("抓流已停止"); }
+                        _capturePid = 0;
+                        _session = null;
+                    }
+                    else if (fresh.Pid != _session.Pid)
+                    {
+                        Log.W("会话进程变化 " + _session.Pid + " -> " + fresh.Pid + "，准备重新绑定");
+                        if (_cap != null && _cap.IsRunning) { _cap.Stop(); Log.W("抓流已停止"); }
+                        _capturePid = 0;
+                        _session = null;
+                    }
+                }
+
                 if (_session == null || !_session.IsAlive)
                 {
                     // 重新找，失败就显示未连接
@@ -272,6 +296,13 @@ namespace NvHud
                     {
                         _session = s;
                         Log.W("重新绑定会话 pid=" + s.Pid);
+                        // 重新绑定后强制把当前曲目当成"新歌"重新定档，避免沿用死会话时的旧状态
+                        _committed = _cfg.DefaultVolume / 100f;
+                        _firstApplied = false;
+                        _limDb = 0f;
+                        _fastDb = -120f;
+                        _measureMuteUntil = DateTime.Now.AddMilliseconds(600);
+                        _title = "";
                         SetSessionVolume(_cfg.DefaultVolume / 100f, true);
                     }
                     else
@@ -314,6 +345,13 @@ namespace NvHud
                 if (_cfg.AutoGain && _session != null && _session.IsAlive)
                 {
                     if (_cap == null) _cap = new ProcessCapture();
+                    // 绑定的进程变了（网易云重启）→ 必须重启抓流，否则会一直抓死进程拿到静音
+                    if (_cap.IsRunning && _capturePid != _session.Pid)
+                    {
+                        Log.W("抓流进程变化 " + _capturePid + " -> " + _session.Pid + "，重启抓流");
+                        _cap.Stop();
+                        _capturePid = 0;
+                    }
                     bool needStart = !_cap.IsRunning &&
                                      (_capturePid != _session.Pid || (DateTime.Now - _lastCapTry).TotalSeconds > 5);
                     if (needStart)
