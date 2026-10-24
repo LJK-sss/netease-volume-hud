@@ -172,7 +172,7 @@ LevelBand fixes exactly that: **one app, per-song memory, and no action at all w
 
 Download `LevelBand.exe` from Releases and double-click. Requires Windows 10/11 x64 with .NET Framework 4.8 (preinstalled). The window is always-on-top but only re-asserts itself every 15 seconds, so full-screen screen-capture tools (WeChat/QQ) are not disturbed.
 
-Controls: drag to move, click/drag only the bottom bar strip to set volume, **Ctrl + ↑/↓** while hovering for ±2%, middle-click to mute, left-click the menu icon for settings, right-click it for the quick menu. Long track titles scroll slowly while you hover.
+Controls: drag to move, click/drag only the bottom bar strip to set volume, **Ctrl + ↑/↓** while hovering for ±2%, middle-click to mute, left-click the menu icon for settings, right-click it for the quick menu. Long track titles scroll slowly, all the time.
 
 ### Build
 

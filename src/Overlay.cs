@@ -140,7 +140,7 @@ namespace NvHud
             if (title == null) title = "";
             _title = title;
             // 标题变了（切歌）：悬停中要重新判断是否需要滚动
-            if (_hover && _title != lastTitle) StartMarquee();
+            if (_title != lastTitle) StartMarquee();   // 常驻：切歌就重新判断长度
             if (changed) Render();
         }
 
@@ -318,7 +318,6 @@ namespace NvHud
                 _anchorBottom = (_wy + futureH) > scr.WorkingArea.Bottom;
             }
             Render();   // 尺寸不再变，只需重绘（决定按钮是否出现）
-            if (on) StartMarquee(); else StopMarquee();
         }
 
 
@@ -326,7 +325,7 @@ namespace NvHud
         private void StartMarquee()
         {
             StopMarquee();
-            if (!_hover || string.IsNullOrEmpty(_title)) return;
+            if (string.IsNullOrEmpty(_title)) return;   // 常驻滚动：不再要求悬停
             float textW = Renderer.MeasureTitleWidth(_title);
             float avail = Renderer.TitleViewportW;
             _marqueeMax = textW - avail + 8f;      // 8px 尾巴余量
@@ -352,7 +351,7 @@ namespace NvHud
         /// <summary>60fps + 时间基准 + smoothstep 缓入缓出（平均约 24px/s，中段约 36px/s）。</summary>
         private void MarqueeTick(object sender, EventArgs e)
         {
-            if (!_hover) { StopMarquee(); return; }
+            if (string.IsNullOrEmpty(_title)) { StopMarquee(); return; }
             if (DateTime.Now < _marqueeHoldUntil)
             {
                 // 停顿结束时把时间基准对齐，避免停顿被算进滚动时间
