@@ -17,6 +17,15 @@ namespace NvHud
 
         private readonly LayeredSurface _surface = new LayeredSurface();
         private readonly Timer _anim;
+        // 长标题滚动（仅悬停且文字溢出时启用，30fps）
+        private readonly Timer _marquee = new Timer();
+        private float _marqueePos;
+        private float _marqueeMax;
+        private bool _marqueeAtEnd;
+        private DateTime _marqueeHoldUntil = DateTime.MinValue;
+        private DateTime _marqueeEpoch = DateTime.MinValue;   // 本段滚动的起点（时间基准，避免抖动累积）
+        private float _marqueeTravel = 1f;                   // 本段滚动总时长（秒）
+
         private readonly Timer _leaveGuard;
 
         private float _animT;          // 0 = 常态, 1 = 展开
@@ -70,6 +79,9 @@ namespace NvHud
             _leaveGuard.Interval = 120;
             _leaveGuard.Tick += new EventHandler(LeaveGuardTick);
 
+            _marquee.Interval = 16;             // 60 fps：运动更细腻
+            _marquee.Tick += MarqueeTick;
+
             Native.EnableDpiAware();
         }
 
@@ -105,22 +117,24 @@ namespace NvHud
             if (Handle == IntPtr.Zero) return;
             if (PopupVisible != null && PopupVisible())
             {
-                // 只改位置/尺寸，不动 Z 序，避免把菜单压到下面
+                // 有弹出面板/菜单时不抢 Z 序，否则会把它们压到小窗下面
                 Native.SetWindowPos(Handle, IntPtr.Zero, x, y, w, h, flags | Native.SWP_NOZORDER);
                 return;
             }
             Native.SetWindowPos(Handle, Native.HWND_TOPMOST, x, y, w, h, flags);
         }
 
-        public void RaiseTopmost()
+        /// <summary>重申置顶（不抢焦点）。由 15 秒的定时器调用。</summary>
+        public void RaiseNoActivate()
         {
-            if (Handle != IntPtr.Zero)
-                PushTop(0, 0, 0, 0,
-                    Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
+            if (Handle == IntPtr.Zero) return;
+            Native.SetWindowPos(Handle, Native.HWND_TOPMOST, 0, 0, 0, 0,
+                Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
         }
 
         public void SetState(int volume, bool muted, bool offline, string title, float loudDb)
         {
+            string lastTitle = _title;
             float dbOld = _loudDb;
             _loudDb = loudDb;
             bool changed = volume != _volume || muted != _muted || offline != _offline
@@ -129,6 +143,8 @@ namespace NvHud
             _volume = volume; _muted = muted; _offline = offline;
             if (title == null) title = "";
             _title = title;
+            // 标题变了（切歌）：悬停中要重新判断是否需要滚动
+            if (_hover && _title != lastTitle) StartMarquee();
             if (changed) Render();
         }
 
@@ -179,6 +195,7 @@ namespace NvHud
             st.Volume = _volume;
             st.Title = _title;
             st.LoudDb = _loudDb;
+            st.TitleOffset = _marqueePos;
 
             // 位置与尺寸
             if (!_posReady) { _wx = Location.X; _wy = Location.Y; _posReady = true; }
@@ -211,6 +228,7 @@ namespace NvHud
             forced.Volume = st.Volume;
             forced.Title = st.Title;
             forced.LoudDb = st.LoudDb;
+            forced.TitleOffset = st.TitleOffset;
 
             // 以目标尺寸为画布，绘制后若中间尺寸更小则整体缩放，保证不裁切
             SizeF target = Renderer.LogicalSize(st.Hover);
@@ -266,6 +284,7 @@ namespace NvHud
 
         protected override void OnMouseEnter(EventArgs e)
         {
+            RaiseNoActivate();
             base.OnMouseEnter(e);
             SetHover(true);
             SetHotkeys(true);
@@ -301,8 +320,75 @@ namespace NvHud
                 _anchorBottom = (_wy + futureH) > scr.WorkingArea.Bottom;
             }
             _anim.Start();
+            if (on) StartMarquee(); else StopMarquee();
         }
 
+
+        /// <summary>仅当悬停且标题确实溢出时，才启动滚动。</summary>
+        private void StartMarquee()
+        {
+            StopMarquee();
+            if (!_hover || string.IsNullOrEmpty(_title)) return;
+            float textW = Renderer.MeasureTitleWidth(_title);
+            float avail = Renderer.TitleViewportW;
+            _marqueeMax = textW - avail + 8f;      // 8px 尾巴余量
+            if (_marqueeMax < 6f) return;          // 没溢出就不动
+            // 平滑：以 30px/s 为基准，smoothstep 缓入缓出让两端不生硬，
+            // 平均速度因此略低，所以总时长按 1.25 倍放宽
+            _marqueeTravel = Math.Max(0.8f, _marqueeMax / 30f * 1.25f);
+            _marqueePos = 0f;
+            _marqueeAtEnd = false;
+            _marqueeEpoch = DateTime.Now;
+            _marqueeHoldUntil = DateTime.Now.AddSeconds(1);   // 开头停 1 秒
+            _marquee.Start();
+        }
+
+        private void StopMarquee()
+        {
+            if (_marquee.Enabled) _marquee.Stop();
+            _marqueeAtEnd = false;
+            _marqueeMax = 0f;
+            if (_marqueePos != 0f) { _marqueePos = 0f; Render(); }
+        }
+
+        /// <summary>60fps + 时间基准 + smoothstep 缓入缓出（平均约 24px/s，中段约 36px/s）。</summary>
+        private void MarqueeTick(object sender, EventArgs e)
+        {
+            if (!_hover) { StopMarquee(); return; }
+            if (DateTime.Now < _marqueeHoldUntil)
+            {
+                // 停顿结束时把时间基准对齐，避免停顿被算进滚动时间
+                _marqueeEpoch = DateTime.Now;
+                return;
+            }
+
+            if (_marqueeAtEnd)
+            {
+                // 尾部停满 1 秒 → 回到开头，重新计时
+                _marqueePos = 0f;
+                _marqueeAtEnd = false;
+                _marqueeEpoch = DateTime.Now;
+                _marqueeHoldUntil = DateTime.Now.AddSeconds(1);
+                Render();
+                return;
+            }
+
+            // 按"已经过去多少时间"算位置：定时器抖动不会累积成忽快忽慢
+            float t = (float)((DateTime.Now - _marqueeEpoch).TotalSeconds / _marqueeTravel);
+            if (t >= 1f)
+            {
+                _marqueePos = _marqueeMax;
+                _marqueeAtEnd = true;
+                _marqueeHoldUntil = DateTime.Now.AddSeconds(1);   // 尾部停 1 秒
+                Render();
+                return;
+            }
+
+            // smoothstep：起步和收尾各有一段缓动，中段接近匀速
+            float u = t * t * (3f - 2f * t);
+            _marqueePos = u * _marqueeMax;
+            Render();
+        }
         private void AnimTick(object sender, EventArgs e)
         {
             float target = _hover ? 1f : 0f;

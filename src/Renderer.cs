@@ -15,6 +15,7 @@ namespace NvHud
         public int Volume = 55;
         public string Title = "";
         public float LoudDb = float.NaN;   // 当前曲目实测响度（P80），NaN 表示暂无
+        public float TitleOffset = 0f;   // 长标题滚动偏移（逻辑像素）
     }
 
     internal static class Renderer
@@ -23,6 +24,26 @@ namespace NvHud
         public const float H_NORMAL = 50f;
         public const float W_HOVER = 196f;   // 与常态同宽：展开只增高，避免右侧出屏
         public const float H_HOVER = 76f;
+
+        public const string TitleFontName = "Microsoft YaHei UI";
+        public const float TitleFontPx = 11.5f;
+
+        /// <summary>悬停时标题可用的宽度（逻辑像素）。</summary>
+        public const float TitleViewportW = W_HOVER - 12f - 52f;   // 标题区从左边距 12 开始
+
+        /// <summary>按绘制用的同款字体测量标题宽度（逻辑像素）。</summary>
+        public static float MeasureTitleWidth(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return 0f;
+            try
+            {
+                using (var tmp = new Bitmap(1, 1))
+                using (var g = Graphics.FromImage(tmp))
+                using (var f = new Font(TitleFontName, TitleFontPx, FontStyle.Regular, GraphicsUnit.Pixel))
+                    return g.MeasureString(text, f).Width;
+            }
+            catch { return 0f; }
+        }
 
         public static SizeF LogicalSize(bool hover)
         {
@@ -129,21 +150,43 @@ namespace NvHud
             using (var sf = Center())
                 g.DrawString("\u266A", fNote, bNote, new RectangleF(iconX, iconY, iconD, iconD), sf);
 
+            // 文字统一用 ClearType（与参数面板/右键菜单一致），边缘更实
+            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
             float cx = iconX + iconD + 9f;
 
-            // 悬停态的曲目名
+            // 悬停态的曲目名（ClearType，与参数面板/右键菜单一致；超长时可滚动）
+            float tvX = 12f, tvY = 10f, tvW = w - 12f - 52f, tvH = 16f;   // 从图标正上方开始，把那块区域也用上
             if (hover)
             {
-                using (var fT = new Font("Microsoft YaHei UI", 10.5f, FontStyle.Regular, GraphicsUnit.Pixel))
-                using (var bT = new SolidBrush(C(143, 146, 162, 255)))
-                using (var sf = new StringFormat())
+                TextRenderingHint oldHint = g.TextRenderingHint;
+                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                using (var fT = new Font(TitleFontName, TitleFontPx, FontStyle.Regular, GraphicsUnit.Pixel))
+                using (var bT = new SolidBrush(C(232, 234, 242, 255)))
                 {
-                    sf.Alignment = StringAlignment.Near;
-                    sf.LineAlignment = StringAlignment.Center;
-                    sf.FormatFlags = StringFormatFlags.NoWrap;
-                    sf.Trimming = StringTrimming.EllipsisCharacter;
-                    g.DrawString(st.Title, fT, bT, new RectangleF(cx, 11f, w - cx - 52f, 14f), sf);
+                    var viewport = new RectangleF(tvX, tvY, tvW, tvH);
+                    if (st.TitleOffset > 0.5f)
+                    {
+                        // 滚动中：裁剪到视口，整段文字按偏移左移
+                        var oldClip = g.Clip;
+                        g.SetClip(viewport, CombineMode.Intersect);
+                        using (var sf2 = Near())
+                            g.DrawString(st.Title, fT, bT, new RectangleF(tvX - st.TitleOffset, tvY, 2000f, tvH), sf2);
+                        g.Clip = oldClip;
+                    }
+                    else
+                    {
+                        using (var sf = new StringFormat())
+                        {
+                            sf.Alignment = StringAlignment.Near;
+                            sf.LineAlignment = StringAlignment.Center;
+                            sf.FormatFlags = StringFormatFlags.NoWrap;
+                            sf.Trimming = StringTrimming.EllipsisCharacter;
+                            g.DrawString(st.Title, fT, bT, viewport, sf);
+                        }
+                    }
                 }
+                g.TextRenderingHint = oldHint;
             }
 
             // 主体文字
@@ -176,7 +219,7 @@ namespace NvHud
                     g.DrawString(num, fN, bN, new RectangleF(cx, numCy - numPx, 120f, numPx * 2f), sf);
                     SizeF nsz = g.MeasureString(num, fN);
                     using (var fP = new Font("Segoe UI", numPx * 0.40f, FontStyle.Bold, GraphicsUnit.Pixel))
-                    using (var bP = new SolidBrush(C(156, 158, 172, 255)))
+                    using (var bP = new SolidBrush(C(198, 201, 212, 255)))
                     using (var sf2 = Near())
                     {
                         float pctCy = numCy + numPx * 0.26f;
@@ -190,9 +233,9 @@ namespace NvHud
             // 当前曲目响度（右侧小字）
             if (!off && !float.IsNaN(st.LoudDb))
             {
-                float dbPx = st.Hover ? 13f : 11.5f;
+                float dbPx = st.Hover ? 13.5f : 12f;
                 using (var fDb = new Font("Segoe UI", dbPx, FontStyle.Regular, GraphicsUnit.Pixel))
-                using (var bDb = new SolidBrush(C(126, 128, 142, 255)))
+                using (var bDb = new SolidBrush(C(198, 201, 212, 255)))
                 using (var sfDb = new StringFormat())
                 {
                     sfDb.Alignment = StringAlignment.Far;

@@ -44,7 +44,7 @@ namespace NvHud
         private static string SongsPath { get { return Path.Combine(Config.Dir, "songs.ini"); } }
 
         private readonly Timer _tick = new Timer();
-        private readonly Timer _topmost = new Timer();
+        private readonly Timer _topmost = new Timer();   // 15 秒重申一次置顶（避免截图时频繁跳出）
         private readonly Timer _ramp = new Timer();
 
         private string _title = "";
@@ -117,18 +117,18 @@ namespace NvHud
             _tick.Interval = 500;
             _tick.Tick += OnTick;
 
-            _topmost.Interval = 2000;
-            _topmost.Tick += delegate
-            {
-                // 有弹出面板/菜单时不重申置顶，否则会把它们压到小窗下面
-                if ((_panel != null && _panel.Visible) || (_menu != null && _menu.Visible)) return;
-                if (_overlay.Visible) _overlay.RaiseTopmost();
-            };
-
             _ramp.Interval = 18;
             _ramp.Tick += OnRampTick;
 
             _tick.Start();
+
+            // 15 秒重申一次置顶：比原来 2 秒宽松，微信截图时不会频繁跳出来挡住画面
+            _topmost.Interval = 15000;
+            _topmost.Tick += delegate
+            {
+                if ((_panel != null && _panel.Visible) || (_menu != null && _menu.Visible)) return;
+                if (_overlay.Visible) _overlay.RaiseNoActivate();
+            };
             _topmost.Start();
 
             _panelGuard.Interval = 150;
@@ -759,7 +759,7 @@ namespace NvHud
         private void ShowOverlay()
         {
             _overlay.ShowOverlay();
-            _overlay.RaiseTopmost();
+            _overlay.RaiseNoActivate();
             UpdateUi(true);
         }
 
