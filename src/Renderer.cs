@@ -16,6 +16,7 @@ namespace NvHud
         public string Title = "";
         public float LoudDb = float.NaN;   // 当前曲目实测响度（P80），NaN 表示暂无
         public float TitleOffset = 0f;   // 长标题滚动偏移（逻辑像素）
+        public bool TitleScrolls = false;   // 标题在滚动（溢出）：此时不画省略号
         public bool ShowControls = false;   // 悬停时显示菜单/关闭按钮
     }
 
@@ -166,7 +167,7 @@ namespace NvHud
                 using (var bT = new SolidBrush(C(232, 234, 242, 255)))
                 {
                     var viewport = new RectangleF(tvX, tvY, tvW, tvH);
-                    if (st.TitleOffset > 0.5f)
+                    if (st.TitleScrolls)
                     {
                         // 滚动中：裁剪到视口，整段文字按偏移左移
                         var oldClip = g.Clip;

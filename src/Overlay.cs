@@ -193,6 +193,7 @@ namespace NvHud
             st.LoudDb = _loudDb;
             st.TitleOffset = _marqueePos;
             st.ShowControls = _hover;             // 只有悬停时才画菜单/关闭按钮
+            st.TitleScrolls = _marqueeMax > 0f;    // 溢出滚动中：不显示省略号
 
             // 位置与尺寸
             if (!_posReady) { _wx = Location.X; _wy = Location.Y; _posReady = true; }
@@ -227,6 +228,7 @@ namespace NvHud
             forced.LoudDb = st.LoudDb;
             forced.TitleOffset = st.TitleOffset;
             forced.ShowControls = st.ShowControls;
+            forced.TitleScrolls = st.TitleScrolls;
 
             // 以目标尺寸为画布，绘制后若中间尺寸更小则整体缩放，保证不裁切
             SizeF target = Renderer.LogicalSize(st.Hover);
