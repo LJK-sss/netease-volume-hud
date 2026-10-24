@@ -416,6 +416,18 @@ namespace NvHud
         }
 
         // 拖动区：左侧图标列（光标会变成四向箭头）；调音量：条子；右上角小叉：退出
+        /// <summary>Volume drag area: only the bottom bar strip (with a little grab margin).</summary>
+        private bool IsOnBar(Point p)
+        {
+            float s = BaseScale;
+            float lx = p.X / s, ly = p.Y / s;
+            float h = Renderer.H_HOVER;
+            float bx = BarStartX;
+            float bw = BarWidth;
+            return ly >= h - 20f && ly <= h            // 只到底部这条（条子 y≈66，上下各留余量）
+                && lx >= bx - 8f && lx <= bx + bw + 8f;
+        }
+
         private bool IsOnIcon(Point p)
         {
             float s = BaseScale;
@@ -461,6 +473,7 @@ namespace NvHud
                     StartMove();
                     return;
                 }
+                if (!IsOnBar(e.Location)) return;   // 只有音量条那块区域能调音量
                 _draggingLeft = true;
                 EmitVolume(VolumeAt(e.Location));
                 Capture = true;
@@ -516,6 +529,7 @@ namespace NvHud
             if (IsOnClose(e.Location)) Cursor = Cursors.Hand;
             else if (IsOnGear(e.Location)) Cursor = Cursors.Hand;
             else if (IsOnIcon(e.Location)) Cursor = Cursors.SizeAll;
+            else if (IsOnBar(e.Location)) Cursor = Cursors.Hand;
             else Cursor = Cursors.Hand;
         }
 

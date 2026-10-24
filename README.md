@@ -89,7 +89,7 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 | 操作 | 作用 |
 |---|---|
 | 拖左侧音符圆 / 右键拖任意处 | 移动窗口 |
-| 左键点击条子 / 拖动条子 | 调音量 |
+| 左键点击/拖动**底部音量条** | 调音量（只有这一条能调） |
 | **Ctrl + ↑ / ↓** | ±2%（仅鼠标停在小窗上时生效） |
 | 中键 | 静音切换 |
 | 左键点右侧菜单图标 | 参数面板 |
@@ -172,7 +172,7 @@ LevelBand fixes exactly that: **one app, per-song memory, and no action at all w
 
 Download `LevelBand.exe` from Releases and double-click. Requires Windows 10/11 x64 with .NET Framework 4.8 (preinstalled). The window is always-on-top but only re-asserts itself every 15 seconds, so full-screen screen-capture tools (WeChat/QQ) are not disturbed.
 
-Controls: drag to move, click/drag the bar to set volume, **Ctrl + ↑/↓** while hovering for ±2%, middle-click to mute, left-click the menu icon for settings, right-click it for the quick menu. Long track titles scroll slowly while you hover.
+Controls: drag to move, click/drag only the bottom bar strip to set volume, **Ctrl + ↑/↓** while hovering for ±2%, middle-click to mute, left-click the menu icon for settings, right-click it for the quick menu. Long track titles scroll slowly while you hover.
 
 ### Build
 
