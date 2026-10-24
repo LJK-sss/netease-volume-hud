@@ -284,7 +284,7 @@ namespace NvHud
                 }
             }
             // 参数按钮（三条滑杆），只在悬停时出现，位于 × 左侧
-            if (!off && st.ShowControls)
+            if (st.ShowControls)   // 离线时也要能开菜单 / 退出，否则窗口关不掉
             {
                 float gx = w - 40f, gy = 17f;
                 int ga = 190;
@@ -304,7 +304,7 @@ namespace NvHud
                 }
             }
             // 关闭按钮：只在悬停展开时出现（位置固定，不会让鼠标追着跑）
-            if (!off && st.ShowControls)
+            if (st.ShowControls)   // 离线时也要能开菜单 / 退出，否则窗口关不掉
             {
                 float ccx = w - 15f;
                 float ccy = 17f;
