@@ -103,6 +103,7 @@ namespace NvHud
             _overlay = new Overlay();
             _overlay.UserScale = _cfg.Scale;
             _overlay.Fade = _cfg.Opacity;
+            Renderer.LineAlpha = _cfg.BgLines / 100f;
 
             _overlay.VolumeChanged += OnVolumeChanged;
             _overlay.MuteToggleRequested += OnMuteToggle;
@@ -678,6 +679,7 @@ namespace NvHud
                 _panel.TargetStep += delegate(int d) { SetTargetDb(_cfg.TargetDb + d); };
                 _panel.MeasureStep += delegate(int d) { SetMeasure(_cfg.MeasureSeconds + d); };
             _panel.TrustStep += delegate(int d) { SetCacheTrust(_cfg.CacheTrustSec + d); };
+            _panel.BgLinesStep += delegate(int d) { SetBgLines(_cfg.BgLines + d); };
                 _panel.MarginStep += delegate(int d) { SetLimitMargin(_cfg.LimitMarginDb + d); };
                 _panel.ToleranceStep += delegate(int d) { SetTolerance(_cfg.ToleranceDb + d * 0.5f); };
                 _panel.ToggleAutoGain += delegate { SetAutoGain(!_cfg.AutoGain); };
@@ -687,6 +689,7 @@ namespace NvHud
             _panel.TargetDb = _cfg.TargetDb;
             _panel.MeasureSec = _cfg.MeasureSeconds;
             _panel.CacheTrustSec = _cfg.CacheTrustSec;
+            _panel.BgLines = _cfg.BgLines;
             _panel.LimitMargin = _cfg.LimitMarginDb;
             _panel.Tolerance = _cfg.ToleranceDb;
             _panel.AutoGainOn = _cfg.AutoGain;
@@ -767,6 +770,18 @@ namespace NvHud
             Log.W("参数: 缓存信任 = " + v + " 秒" + (v == 0 ? "（关闭）" : ""));
         }
 
+        private void SetBgLines(int v)
+        {
+            if (v < 0) v = 0;
+            if (v > 40) v = 40;
+            _cfg.BgLines = v;
+            _cfg.Save();
+            Renderer.LineAlpha = v / 100f;
+            if (_panel != null) { _panel.BgLines = v; _panel.Refresh_(); }
+            UpdateUi(true);
+            Log.W("参数: 线稿水印 = " + v + "%");
+        }
+
         private void SetTolerance(float v)
         {
             if (v < 0.5f) v = 0.5f;
@@ -803,6 +818,7 @@ namespace NvHud
             _cfg.TargetDb = -26f;
             _cfg.MeasureSeconds = 12;
             _cfg.CacheTrustSec = 20;
+            _cfg.BgLines = 22;
             _cfg.LimitMarginDb = 4f;
             _cfg.ToleranceDb = 1.5f;
             _cfg.Save();

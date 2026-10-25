@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Drawing.Text;
 
 namespace NvHud
@@ -26,6 +27,31 @@ namespace NvHud
         public const float H_NORMAL = 50f;
         public const float W_HOVER = 196f;   // 与常态同宽：展开只增高，避免右侧出屏
         public const float H_HOVER = 76f;
+
+        // ---- 内置画作（头像 + 线稿水印），从 exe 资源加载 ----
+        private static Bitmap _avatar;
+        private static Bitmap _lines;
+        private static ImageAttributes _linesAttr;
+        private static float _linesAttrAlpha = -1f;
+        private static bool _artTried;
+
+        /// <summary>线稿水印浓度 0~1（可由参数面板调整）。</summary>
+        public static float LineAlpha = 0.22f;
+
+        private static void EnsureArt()
+        {
+            if (_artTried) return;
+            _artTried = true;
+            try
+            {
+                var asm = typeof(Renderer).Assembly;
+                using (var s = asm.GetManifestResourceStream("avatar.png"))
+                    if (s != null) _avatar = new Bitmap(s);
+                using (var s = asm.GetManifestResourceStream("lines.png"))
+                    if (s != null) _lines = new Bitmap(s);
+            }
+            catch { }
+        }
 
         public const string TitleFontName = "Microsoft YaHei UI";
         public const float TitleFontPx = 11.5f;
@@ -99,6 +125,7 @@ namespace NvHud
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
             g.ScaleTransform(st.Scale, st.Scale);
+            EnsureArt();
 
             SizeF sz = LogicalSize(st.Hover);
             float w = sz.Width, h = sz.Height;
@@ -114,6 +141,29 @@ namespace NvHud
                 using (var fill = new SolidBrush(off ? C(24, 24, 28, 235) : ((st.ShowControls ? C(33, 33, 40, 246) : C(28, 28, 34, 244)))))
                     g.FillPath(fill, cp);
 
+                // 线稿水印（内置画作），浓度可调
+                if (_lines != null && LineAlpha > 0.01f)
+                {
+                    try
+                    {
+                        if (_linesAttr == null || Math.Abs(_linesAttrAlpha - LineAlpha) > 0.001f)
+                        {
+                            _linesAttrAlpha = LineAlpha;
+                            var cm = new System.Drawing.Imaging.ColorMatrix();
+                            cm.Matrix33 = LineAlpha;
+                            var ia = new System.Drawing.Imaging.ImageAttributes();
+                            ia.SetColorMatrix(cm);
+                            _linesAttr = ia;
+                        }
+                        var st0 = g.Save();
+                        g.SetClip(cp, CombineMode.Intersect);
+                        g.DrawImage(_lines, new Rectangle(0, 0, (int)w, (int)h),
+                            0, 0, _lines.Width, _lines.Height, GraphicsUnit.Pixel, _linesAttr);
+                        g.Restore(st0);
+                    }
+                    catch { }
+                }
+
                 // 顶部高光
                 using (var hp = Round(0, 0, w, h * 0.6f, r))
                 using (var hg = Grad(0, 0, 0, h * 0.6f, C(255, 255, 255, 14), C(255, 255, 255, 0)))
@@ -128,29 +178,47 @@ namespace NvHud
             if (hover) { numCy = h * 0.62f; iconD = 40f; numPt = 22f; }
             else { numCy = h * 0.42f; iconD = 28f; numPt = 17f; }
 
-            // 图标圆
+            // 图标位：有内置画作时用圆形头像，否则退回渐变圆 + 音符
             float iconX = 9f;
             float iconY = numCy - iconD / 2f;
-            using (var ip = new GraphicsPath())
+            if (_avatar != null)
             {
-                ip.AddEllipse(iconX, iconY, iconD, iconD);
-                if (off)
+                var st1 = g.Save();
+                using (var ip2 = new GraphicsPath())
                 {
-                    using (var b = new SolidBrush(C(52, 52, 60, 255))) g.FillPath(b, ip);
+                    ip2.AddEllipse(iconX, iconY, iconD, iconD);
+                    g.SetClip(ip2);
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.DrawImage(_avatar, new RectangleF(iconX, iconY, iconD, iconD));
+                    if (off)   /* 离线时压暗 */
+                    {
+                        using (var dim = new SolidBrush(C(40, 40, 46, 190))) g.FillPath(dim, ip2);
+                    }
+                    g.Restore(st1);
+                    using (var pen = new Pen(C(255, 255, 255, 70), 0.8f)) g.DrawPath(pen, ip2);
                 }
-                else
-                {
-                    using (var b = Grad(iconX, iconY, iconX + iconD, iconY + iconD, C(255, 70, 105, 255), C(255, 143, 92, 255)))
-                        g.FillPath(b, ip);
-                }
-                using (var pen = new Pen(C(255, 255, 255, 46), 0.7f)) g.DrawPath(pen, ip);
             }
-
-            // 音符
-            using (var fNote = new Font("Segoe UI Symbol", iconD * 0.50f, FontStyle.Regular, GraphicsUnit.Pixel))
-            using (var bNote = new SolidBrush(C(255, 255, 255, 242)))
-            using (var sf = Center())
-                g.DrawString("\u266A", fNote, bNote, new RectangleF(iconX, iconY, iconD, iconD), sf);
+            else
+            {
+                using (var ip = new GraphicsPath())
+                {
+                    ip.AddEllipse(iconX, iconY, iconD, iconD);
+                    if (off)
+                    {
+                        using (var b = new SolidBrush(C(52, 52, 60, 255))) g.FillPath(b, ip);
+                    }
+                    else
+                    {
+                        using (var b = Grad(iconX, iconY, iconX + iconD, iconY + iconD, C(255, 70, 105, 255), C(255, 143, 92, 255)))
+                            g.FillPath(b, ip);
+                    }
+                    using (var pen = new Pen(C(255, 255, 255, 46), 0.7f)) g.DrawPath(pen, ip);
+                }
+                using (var fNote = new Font("Segoe UI Symbol", iconD * 0.50f, FontStyle.Regular, GraphicsUnit.Pixel))
+                using (var bNote = new SolidBrush(C(255, 255, 255, 242)))
+                using (var sf = Center())
+                    g.DrawString("\u266A", fNote, bNote, new RectangleF(iconX, iconY, iconD, iconD), sf);
+            }
 
             // 文字统一用 ClearType（与参数面板/右键菜单一致），边缘更实
             g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
