@@ -374,9 +374,11 @@ namespace NvHud
                     _capturePid = 0;
                 }
 
+                bool songChangedNow = false;
                 string t = SongTitle.Current();
                 if (t != _title)
                 {
+                    songChangedNow = true;
                     string prev = _title;
                     _title = t;
                     if (_cfg.AutoGain && t != "" && _session != null)
@@ -434,6 +436,14 @@ namespace NvHud
                     }
                 }
 
+
+                // 切歌收尾：丢掉队列里"上一首/切换瞬间"的残留样本，并静默 600ms（覆盖音量渐变）
+                if (songChangedNow && t != "")
+                {
+                    FlushCapture();
+                    _measureMuteUntil = DateTime.Now.AddMilliseconds(600);
+                }
+
                 UpdateUi(false);
             }
             catch (Exception ex)
@@ -467,6 +477,16 @@ namespace NvHud
             float baseS = _cfg.DefaultVolume / 100f;
             if (baseS < 0.05f) baseS = 0.05f;
             return s > baseS ? baseS : s;
+        }
+
+        /// <summary>丢弃抓流队列里的残留样本（切歌/重绑时调用）。</summary>
+        private void FlushCapture()
+        {
+            if (_cap == null) return;
+            float junk;
+            int n = 0;
+            while (_cap.TryDequeue(out junk)) n++;
+            if (n > 0) Log.W("已丢弃 " + n + " 个切换瞬间的残留样本");
         }
 
         private float CurrentSession()
