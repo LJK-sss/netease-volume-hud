@@ -394,7 +394,7 @@ namespace NvHud
                             {
                                 first = ClampToBase(first);
                                 Log.W("首曲(已认识) " + t + "  直接设为 " + (first * 100f).ToString("F0") + "%");
-                                _cacheTrustUntil = DateTime.Now.AddSeconds(20);
+                                _cacheTrustUntil = DateTime.Now.AddSeconds(_cfg.CacheTrustSec);
                                 SetSessionVolume(first, true);
                                 _committed = first; _limDb = 0f; _fastDb = -120f;
                                 _firstApplied = true; _limFeedbackUsed = false;
@@ -412,7 +412,7 @@ namespace NvHud
                             {
                                 cached = ClampToBase(cached);
                                 Log.W("切歌(已认识) " + prev + " -> " + t + "  直接设为 " + (cached * 100f).ToString("F0") + "%");
-                                _cacheTrustUntil = DateTime.Now.AddSeconds(20);
+                                _cacheTrustUntil = DateTime.Now.AddSeconds(_cfg.CacheTrustSec);
                                 SetSessionVolume(cached, true);
                                 _committed = cached; _limDb = 0f; _fastDb = -120f;
                                 _firstApplied = true; _limFeedbackUsed = false;
@@ -677,6 +677,7 @@ namespace NvHud
                 _panel.VolumeStep += delegate(int d) { SetBaseVolume(_cfg.DefaultVolume + d); };
                 _panel.TargetStep += delegate(int d) { SetTargetDb(_cfg.TargetDb + d); };
                 _panel.MeasureStep += delegate(int d) { SetMeasure(_cfg.MeasureSeconds + d); };
+            _panel.TrustStep += delegate(int d) { SetCacheTrust(_cfg.CacheTrustSec + d); };
                 _panel.MarginStep += delegate(int d) { SetLimitMargin(_cfg.LimitMarginDb + d); };
                 _panel.ToleranceStep += delegate(int d) { SetTolerance(_cfg.ToleranceDb + d * 0.5f); };
                 _panel.ToggleAutoGain += delegate { SetAutoGain(!_cfg.AutoGain); };
@@ -685,6 +686,7 @@ namespace NvHud
             _panel.Volume = _cfg.DefaultVolume;
             _panel.TargetDb = _cfg.TargetDb;
             _panel.MeasureSec = _cfg.MeasureSeconds;
+            _panel.CacheTrustSec = _cfg.CacheTrustSec;
             _panel.LimitMargin = _cfg.LimitMarginDb;
             _panel.Tolerance = _cfg.ToleranceDb;
             _panel.AutoGainOn = _cfg.AutoGain;
@@ -755,6 +757,16 @@ namespace NvHud
             Log.W("参数: 测量时长 = " + v + " 秒");
         }
 
+        private void SetCacheTrust(int v)
+        {
+            if (v < 0) v = 0;
+            if (v > 60) v = 60;
+            _cfg.CacheTrustSec = v;
+            _cfg.Save();
+            if (_panel != null) { _panel.CacheTrustSec = v; _panel.Refresh_(); }
+            Log.W("参数: 缓存信任 = " + v + " 秒" + (v == 0 ? "（关闭）" : ""));
+        }
+
         private void SetTolerance(float v)
         {
             if (v < 0.5f) v = 0.5f;
@@ -790,6 +802,7 @@ namespace NvHud
             _cfg.DefaultVolume = 40;
             _cfg.TargetDb = -26f;
             _cfg.MeasureSeconds = 12;
+            _cfg.CacheTrustSec = 20;
             _cfg.LimitMarginDb = 4f;
             _cfg.ToleranceDb = 1.5f;
             _cfg.Save();
@@ -800,8 +813,9 @@ namespace NvHud
                 _panel.Volume = _cfg.DefaultVolume;
                 _panel.TargetDb = _cfg.TargetDb;
                 _panel.MeasureSec = _cfg.MeasureSeconds;
-            _panel.LimitMargin = _cfg.LimitMarginDb;
-            _panel.Tolerance = _cfg.ToleranceDb;
+                _panel.CacheTrustSec = _cfg.CacheTrustSec;
+                _panel.LimitMargin = _cfg.LimitMarginDb;
+                _panel.Tolerance = _cfg.ToleranceDb;
                 _panel.AutoGainOn = _cfg.AutoGain;
                 _panel.Refresh_();
             }

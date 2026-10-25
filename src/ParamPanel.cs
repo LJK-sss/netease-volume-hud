@@ -19,13 +19,14 @@ namespace NvHud
         public const float W_LOGICAL = 216f;
         public const float ROW_H = 30f;
         public const float PAD_Y = 7f;
-        public const int ROWS = 7;
+        public const int ROWS = 8;
 
         public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ROWS; } }
 
         public int Volume = 45;
         public float TargetDb = -20f;
         public int MeasureSec = 8;
+        public int CacheTrustSec = 20;
         public float LimitMargin = 4f;
         public float Tolerance = 1.5f;
         public bool AutoGainOn = true;
@@ -36,6 +37,7 @@ namespace NvHud
         public event Action<int> VolumeStep;
         public event Action<int> TargetStep;
         public event Action<int> MeasureStep;
+        public event Action<int> TrustStep;
         public event Action<int> MarginStep;
         public event Action<int> ToleranceStep;
         public event Action ToggleAutoGain;
@@ -213,8 +215,9 @@ namespace NvHud
                         case 1: label = "基准响度"; value = TargetDb.ToString("0.0") + " dB"; break;
                         case 2: label = "容差"; value = "±" + Tolerance.ToString("0.0") + " dB"; break;
                         case 3: label = "测量时长"; value = MeasureSec + " 秒"; break;
-                        case 4: label = "限幅余量"; value = LimitMargin.ToString("0.0") + " dB"; break;
-                        case 5: label = "自动增益"; value = AutoGainOn ? "开" : "关"; arrows = false; break;
+                        case 4: label = "缓存信任"; value = CacheTrustSec + " 秒"; break;
+                        case 5: label = "限幅余量"; value = LimitMargin.ToString("0.0") + " dB"; break;
+                        case 6: label = "自动增益"; value = AutoGainOn ? "开" : "关"; arrows = false; break;
                         default: label = "恢复默认"; arrows = false; break;
                     }
 
@@ -237,7 +240,7 @@ namespace NvHud
                     using (var b = new SolidBrush(C(232, 234, 242, 255)))   // 与右键菜单同亮度
                         g.DrawString(label, _fLabel, b, new RectangleF(14, y + 2, 90, ROW_H - 4), sfL);
 
-                    Color vc = (i == 4 && !AutoGainOn) ? C(140, 142, 156, 255) : C(246, 246, 250, 255);
+                    Color vc = (i == 5 && !AutoGainOn) ? C(140, 142, 156, 255) : C(246, 246, 250, 255);
                     using (var b = new SolidBrush(vc))
                         g.DrawString(value, _fValue, b, new RectangleF(w - 132, y + 2, 76, ROW_H - 4), sfR);
 
@@ -246,7 +249,7 @@ namespace NvHud
                         DrawChevron(g, w - 40, y + ROW_H / 2f, false, HoverRow == i && HoverZone == 1);
                         DrawChevron(g, w - 18, y + ROW_H / 2f, true, HoverRow == i && HoverZone == 2);
                     }
-                    else if (i == 5)
+                    else if (i == 6)
                     {
                         // 开关小胶囊
                         float pw2 = 34f, ph2 = 17f;
@@ -294,7 +297,7 @@ namespace NvHud
         {
             float s = DpiScale;
             float lx = p.X / s;
-            if (row == 5) return 3;
+            if (row == 6) return 3;
             if (row == ROWS - 1) return 3;
             if (lx >= W_LOGICAL - 56f && lx < W_LOGICAL - 33f) return 1;
             if (lx >= W_LOGICAL - 33f && lx <= W_LOGICAL - 8f) return 2;
@@ -359,13 +362,17 @@ namespace NvHud
                     else if (zone == 2 && ToleranceStep != null) ToleranceStep(1);
                     break;
                 case 4:
+                    if (zone == 1 && TrustStep != null) TrustStep(-5);
+                    else if (zone == 2 && TrustStep != null) TrustStep(5);
+                    break;
+                case 5:
                     if (zone == 1 && MarginStep != null) MarginStep(-1);
                     else if (zone == 2 && MarginStep != null) MarginStep(1);
                     break;
-                case 5:
+                case 6:
                     if (ToggleAutoGain != null) ToggleAutoGain();
                     break;
-                case 6:
+                case 7:
                     if (ResetDefaults != null) ResetDefaults();
                     break;
             }
