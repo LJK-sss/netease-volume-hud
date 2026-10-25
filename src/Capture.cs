@@ -108,8 +108,8 @@ namespace NvHud
         [DllImport("ole32.dll")] private static extern void CoUninitialize();
 
         private readonly ConcurrentQueue<float> _queue = new ConcurrentQueue<float>();
-        private readonly object _sync = new object();
         private volatile bool _running;
+        private int _gen;            // 代际：Stop 之后旧线程的写入会被丢弃
         private Thread _thread;
         private uint _pid;
         private string _lastError = "";
@@ -125,9 +125,9 @@ namespace NvHud
         public void Start(uint pid)
         {
             Stop();
+            int gen = ++_gen;
             _pid = pid;
-            _running = true;
-            _thread = new Thread(Loop);
+            _thread = new Thread(delegate() { Loop(gen); });
             _thread.IsBackground = true;
             _thread.Name = "NvCapture";
             _thread.SetApartmentState(ApartmentState.MTA);
@@ -137,6 +137,7 @@ namespace NvHud
         public void Stop()
         {
             _running = false;
+            _gen++;   // 让仍在跑的旧线程失效
             Thread t = _thread;
             _thread = null;
             if (t != null && t.IsAlive)
@@ -147,12 +148,12 @@ namespace NvHud
             while (_queue.TryDequeue(out junk)) { }
         }
 
-        private void Loop()
+        private void Loop(int gen)
         {
             try { CoInitializeEx(IntPtr.Zero, 0x0); } catch { }   // MTA
             try
             {
-                RunCapture();
+                RunCapture(gen);
             }
             catch (Exception ex)
             {
@@ -165,7 +166,7 @@ namespace NvHud
             }
         }
 
-        private void RunCapture()
+        private void RunCapture(int gen)
         {
             uint pid = _pid;
             if (pid == 0) { _lastError = "pid=0"; return; }
@@ -232,7 +233,7 @@ namespace NvHud
                 long samples = 0;
                 var lastEmit = DateTime.UtcNow;
 
-                while (_running)
+            while (_running && gen == _gen)
                 {
                     Thread.Sleep(20);
 
@@ -266,7 +267,7 @@ namespace NvHud
                     {
                         double rms = samples > 0 ? Math.Sqrt(sumSq / samples) : 0;
                         float db = rms > 1e-7 ? (float)(20 * Math.Log10(rms)) : -120f;
-                        _queue.Enqueue(db);
+            if (gen == _gen) _queue.Enqueue(db);
                         sumSq = 0; samples = 0;
                         lastEmit = now;
                     }

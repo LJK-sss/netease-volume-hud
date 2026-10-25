@@ -10,7 +10,6 @@ namespace NvHud
     {
         public int X = int.MinValue;
         public int Y = int.MinValue;
-        public string Monitor = "";
         public float Scale = 1.0f;
         public float Opacity = 0.88f;
 
@@ -90,7 +89,6 @@ namespace NvHud
                     {
                         case "x": c.X = Int(v, c.X); break;
                         case "y": c.Y = Int(v, c.Y); break;
-                        case "monitor": c.Monitor = v; break;
                         case "scale": c.Scale = Flt(v, c.Scale); break;
                         case "opacity": c.Opacity = Flt(v, c.Opacity); break;
                         case "defaultVolume": c.DefaultVolume = Int(v, c.DefaultVolume); break;
@@ -112,6 +110,18 @@ namespace NvHud
             if (c.Opacity > 1.0f) c.Opacity = 1.0f;
             if (c.DefaultVolume < 0) c.DefaultVolume = 0;
             if (c.DefaultVolume > 100) c.DefaultVolume = 100;
+
+            // 手改 config 也可能写入离谱的值，这里统一夹一次范围（与参数面板一致）
+            if (c.TargetDb < -30f) c.TargetDb = -30f;
+            if (c.TargetDb > -14f) c.TargetDb = -14f;
+            if (c.ToleranceDb < 0.5f) c.ToleranceDb = 0.5f;
+            if (c.ToleranceDb > 4f) c.ToleranceDb = 4f;
+            if (c.LimitMarginDb < 2f) c.LimitMarginDb = 2f;
+            if (c.LimitMarginDb > 8f) c.LimitMarginDb = 8f;
+            if (c.MeasureSeconds < 4) c.MeasureSeconds = 4;
+            if (c.MeasureSeconds > 12) c.MeasureSeconds = 12;
+            if (c.CacheTrustSec < 0) c.CacheTrustSec = 0;
+            if (c.CacheTrustSec > 60) c.CacheTrustSec = 60;
             return c;
         }
 
@@ -123,7 +133,6 @@ namespace NvHud
                 lines.Add("# LevelBand 配置");
                 lines.Add("x=" + X.ToString(CultureInfo.InvariantCulture));
                 lines.Add("y=" + Y.ToString(CultureInfo.InvariantCulture));
-                lines.Add("monitor=" + Monitor);
                 lines.Add("scale=" + Scale.ToString("0.00", CultureInfo.InvariantCulture));
                 lines.Add("opacity=" + Opacity.ToString("0.00", CultureInfo.InvariantCulture));
                 lines.Add("defaultVolume=" + DefaultVolume.ToString(CultureInfo.InvariantCulture));

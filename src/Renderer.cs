@@ -27,6 +27,7 @@ namespace NvHud
         public const float H_NORMAL = 50f;
         public const float W_HOVER = 196f;   // 与常态同宽：展开只增高，避免右侧出屏
         public const float H_HOVER = 76f;
+        public const float IconCyRatio = 0.62f;   // 图标/数字的垂直中心（相对卡片高度）
 
         // ---- 内置头像（从 exe 资源加载，artwork 文件夹为空时使用）----
         private static Bitmap _avatar;
@@ -164,7 +165,7 @@ namespace NvHud
             }
 
             float numCy, iconD, numPt;
-            if (hover) { numCy = h * 0.62f; iconD = 40f; numPt = 22f; }
+            if (hover) { numCy = h * IconCyRatio; iconD = 40f; numPt = 22f; }
             else { numCy = h * 0.42f; iconD = 28f; numPt = 17f; }
 
             // 图标位：有内置画作时用圆形头像，否则退回渐变圆 + 音符

@@ -83,13 +83,6 @@ namespace NvHud
 
         public void NotifyManual() { _userTouched = true; }
 
-        /// <summary>刚改过推子：等音频真正跟上再采样，否则会把旧响度按新推子反推，得到虚高的源响度。</summary>
-        public void NotifyApplied()
-        {
-            _settleUntil = DateTime.UtcNow.AddMilliseconds(450);
-        }
-
-        /// <summary>开始校准：保持当前音量测 8 秒，把你现在听到的响度定为基准。</summary>
         /// <summary>
         /// 把"实际比估计更响"的差额补进源响度，并写回缓存。
         /// 用于限幅器持续触发时：说明这首被估低了，改一次就不用再压。

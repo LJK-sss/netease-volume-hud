@@ -16,6 +16,8 @@ namespace NvHud
         private const int GWL_EXSTYLE = -20;
 
         private readonly LayeredSurface _surface = new LayeredSurface();
+        private Bitmap _buf;            // 复用绘制缓冲，避免每帧分配
+        private Graphics _bufG;
         // 长标题滚动（仅悬停且文字溢出时启用，30fps）
         private readonly Timer _marquee = new Timer();
         private float _marqueePos;
@@ -203,21 +205,27 @@ namespace NvHud
             if (!_posReady) { _wx = Location.X; _wy = Location.Y; _posReady = true; }
             ApplyGeometry(pw, ph);
 
-            using (var bmp2 = new Bitmap(pw, ph, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
-            using (var g2 = Graphics.FromImage(bmp2))
+            if (_buf == null || _buf.Width != pw || _buf.Height != ph)
             {
-                g2.Clear(Color.Transparent);
-                DrawInterpolated(g2, st, wLogical, hLogical);
-                _surface.CopyFrom(bmp2, Fade);
+                if (_bufG != null) { _bufG.Dispose(); _bufG = null; }
+                if (_buf != null) { _buf.Dispose(); _buf = null; }
+                _buf = new Bitmap(pw, ph, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                _bufG = Graphics.FromImage(_buf);
             }
+            _bufG.ResetTransform();
+            _bufG.ResetClip();
+            _bufG.Clear(Color.Transparent);
+            DrawInterpolated(_bufG, st, wLogical, hLogical);
+            _surface.CopyFrom(_buf, Fade);
 
             _surface.Push(Handle, _wx, _wy);
+
         }
 
         /// <summary>按插值尺寸绘制（复用 Renderer 的逻辑，但宽高为动画中间值）。</summary>
         private static void DrawInterpolated(Graphics g, UiState st, float w, float h)
         {
-            // Renderer.Draw 内部按 LogicalSize(hover) 取尺寸；这里用临时状态让它画到中间尺寸：
+            // 用当前状态的中插尺寸绘制（卡片常驻展开，_animT 恒为 1）
             // 把 hover 视为 true 只有当插值过半，并额外用裁剪避免超界。
             float scale = st.Scale;
             g.ScaleTransform(scale, scale);
@@ -449,7 +457,7 @@ namespace NvHud
             float lx = p.X / s, ly = p.Y / s;
             float iconD = _animT > 0.5f ? 40f : 28f;
             float cx = 9f + iconD / 2f;
-            float cy = (Renderer.H_HOVER * 0.62f);
+            float cy = Renderer.H_HOVER * Renderer.IconCyRatio;
             float dx = lx - cx, dy = ly - cy;
             return dx * dx + dy * dy <= (iconD / 2f) * (iconD / 2f);
         }
@@ -688,6 +696,8 @@ namespace NvHud
             {
                 _leaveGuard.Dispose();
                 SetHotkeys(false);
+                if (_bufG != null) { _bufG.Dispose(); _bufG = null; }
+                if (_buf != null) { _buf.Dispose(); _buf = null; }
                 _surface.Dispose();
             }
             base.Dispose(disposing);

@@ -17,7 +17,6 @@ namespace NvHud
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         public static extern int RegisterWindowMessage(string lpString);
-        public static readonly int WM_TASKBAR_CREATED = RegisterWindowMessage("TaskbarCreated");
         public const int WM_MOUSEACTIVATE = 0x0021;
         public const int MA_NOACTIVATE = 3;
         public const int WM_MOUSEMOVE = 0x0200;
@@ -43,7 +42,6 @@ namespace NvHud
         public const uint SWP_SHOWWINDOW = 0x0040;
         public static readonly IntPtr HWND_TOP = IntPtr.Zero;
         public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-        public static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
 
         public const int TME_LEAVE = 0x00000002;
 

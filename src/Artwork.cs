@@ -14,6 +14,7 @@ namespace NvHud
 
         private static readonly List<string> _paths = new List<string>();
         private static readonly Dictionary<string, PointF> _focus = new Dictionary<string, PointF>(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<int> _bad = new HashSet<int>();   // 解不出来的图
         private static readonly Dictionary<int, Bitmap> _cache = new Dictionary<int, Bitmap>();
         private static readonly List<int> _cacheOrder = new List<int>();
 
@@ -25,14 +26,26 @@ namespace NvHud
 
         public static float Fade = 1f;
         public static int Count { get { return _paths.Count; } }
-        public static Bitmap Current { get { return Get(_index); } }
+public static Bitmap Current { get { return CurrentSkippingBad(); } }
+
+        /// <summary>取当前头像；遇到解不出来的图就跳到下一张。</summary>
+        private static Bitmap CurrentSkippingBad()
+        {
+            for (int attempt = 0; attempt < _paths.Count; attempt++)
+            {
+                Bitmap b = Get(_index);
+                if (b != null) return b;
+                _index = (_index + 1) % _paths.Count;
+            }
+            return _embedded;
+        }
         public static Bitmap Previous { get { return _prevIndex >= 0 ? Get(_prevIndex) : null; } }
         public static bool HasFade { get { return Fade < 0.999f && _prevIndex >= 0; } }
 
         public static void Load(string folder, Bitmap embedded)
         {
             _embedded = embedded;
-            _paths.Clear(); _focus.Clear(); _cache.Clear(); _cacheOrder.Clear();
+            _paths.Clear(); _focus.Clear(); _cache.Clear(); _cacheOrder.Clear(); _bad.Clear();
             _index = 0; _prevIndex = -1; Fade = 1f;
             try
             {
@@ -91,6 +104,7 @@ namespace NvHud
         {
             if (_paths.Count == 0) return _embedded;
             if (i < 0 || i >= _paths.Count) i = 0;
+            if (_bad.Contains(i)) return null;
 
             Bitmap bmp;
             if (_cache.TryGetValue(i, out bmp)) { Touch(i); return bmp; }
@@ -101,9 +115,14 @@ namespace NvHud
                 if (!_focus.TryGetValue(Path.GetFileName(_paths[i]), out fpt)) fpt = new PointF(0.5f, 0.5f);
                 bmp = Prepare(_paths[i], fpt);
             }
-            catch { return _embedded; }
+            catch (Exception ex)
+            {
+                _bad.Add(i);
+                try { Log.W("头像无法解码，已跳过: " + Path.GetFileName(_paths[i]) + " (" + ex.GetType().Name + ")"); } catch { }
+                return null;
+            }
 
-            if (bmp == null) return _embedded;
+            if (bmp == null) return null;
             _cache[i] = bmp;
             Touch(i);
             Evict();

@@ -42,7 +42,6 @@ namespace NvHud
         private double _limExcess;
         private DateTime _limWindow = DateTime.MinValue;                  // 限幅器临时偏移（≤0）
         private DateTime _measureMuteUntil = DateTime.MinValue;
-        private DateTime _lastDbg = DateTime.MinValue;
         private static string SongsPath { get { return Path.Combine(Config.Dir, "songs.ini"); } }
 
         private readonly Timer _tick = new Timer();
