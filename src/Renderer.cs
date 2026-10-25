@@ -28,15 +28,10 @@ namespace NvHud
         public const float W_HOVER = 196f;   // 与常态同宽：展开只增高，避免右侧出屏
         public const float H_HOVER = 76f;
 
-        // ---- 内置画作（头像 + 线稿水印），从 exe 资源加载 ----
+        // ---- 内置头像（从 exe 资源加载，artwork 文件夹为空时使用）----
         private static Bitmap _avatar;
-        private static Bitmap _lines;
-        private static ImageAttributes _linesAttr;
-        private static float _linesAttrAlpha = -1f;
         private static bool _artTried;
 
-        /// <summary>线稿水印浓度 0~1（可由参数面板调整）。</summary>
-        public static float LineAlpha = 0.22f;
 
         /// <summary>内置头像（exe 资源），artwork 文件夹为空时使用。</summary>
         public static Bitmap EmbeddedAvatar { get { EnsureArt(); return _avatar; } }
@@ -50,8 +45,6 @@ namespace NvHud
                 var asm = typeof(Renderer).Assembly;
                 using (var s = asm.GetManifestResourceStream("avatar.png"))
                     if (s != null) _avatar = new Bitmap(s);
-                using (var s = asm.GetManifestResourceStream("lines.png"))
-                    if (s != null) _lines = new Bitmap(s);
             }
             catch { }
         }
@@ -159,28 +152,6 @@ namespace NvHud
                 using (var fill = new SolidBrush(off ? C(24, 24, 28, 235) : ((st.ShowControls ? C(33, 33, 40, 246) : C(28, 28, 34, 244)))))
                     g.FillPath(fill, cp);
 
-                // 线稿水印（内置画作），浓度可调
-                if (_lines != null && LineAlpha > 0.01f)
-                {
-                    try
-                    {
-                        if (_linesAttr == null || Math.Abs(_linesAttrAlpha - LineAlpha) > 0.001f)
-                        {
-                            _linesAttrAlpha = LineAlpha;
-                            var cm = new System.Drawing.Imaging.ColorMatrix();
-                            cm.Matrix33 = LineAlpha;
-                            var ia = new System.Drawing.Imaging.ImageAttributes();
-                            ia.SetColorMatrix(cm);
-                            _linesAttr = ia;
-                        }
-                        var st0 = g.Save();
-                        g.SetClip(cp, CombineMode.Intersect);
-                        g.DrawImage(_lines, new Rectangle(0, 0, (int)w, (int)h),
-                            0, 0, _lines.Width, _lines.Height, GraphicsUnit.Pixel, _linesAttr);
-                        g.Restore(st0);
-                    }
-                    catch { }
-                }
 
                 // 顶部高光
                 using (var hp = Round(0, 0, w, h * 0.6f, r))

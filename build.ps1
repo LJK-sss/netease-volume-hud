@@ -41,7 +41,7 @@ if (Test-Path $out) { Remove-Item $out -Force }
 Push-Location $src
 try {
     & $csc /nologo /target:winexe /platform:x64 /unsafe /optimize+ `
-        /win32icon:app.ico /resource:avatar.png /resource:lines.png `
+        /win32icon:app.ico /resource:avatar.png `
         /out:$out `
         /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Core.dll `
         *.cs

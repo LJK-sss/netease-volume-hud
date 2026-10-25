@@ -22,7 +22,6 @@ namespace NvHud
         public float TargetDb = -26f;       // 目标响度：P90 RMS dBFS（可用"校准"重设）
         public int MeasureSeconds = 12;      // 每首歌测量时长（秒）
         public int CacheTrustSec = 20;       // 缓存信任期（秒）：开头这段时间内不自动改音量
-        public int BgLines = 0;             // 卡片背景线稿水印浓度（0~40）
         public float ToleranceDb = 1.5f;    // 目标区间半宽（±dB）
         public float LimitMarginDb = 4f;    // 限幅余量：超过"基准响度 + 该值"才限幅
 
@@ -101,7 +100,6 @@ namespace NvHud
                         case "targetDb": c.TargetDb = Flt(v, c.TargetDb); break;
                         case "measureSeconds": c.MeasureSeconds = Int(v, c.MeasureSeconds); break;
                         case "cacheTrustSec": c.CacheTrustSec = Int(v, c.CacheTrustSec); break;
-                        case "bgLines": c.BgLines = Int(v, c.BgLines); break;
                         case "limitMarginDb": c.LimitMarginDb = Flt(v, c.LimitMarginDb); break;
                         case "toleranceDb": c.ToleranceDb = Flt(v, c.ToleranceDb); break;
                     }
@@ -135,7 +133,6 @@ namespace NvHud
                 lines.Add("targetDb=" + TargetDb.ToString("0.0", CultureInfo.InvariantCulture));
                 lines.Add("measureSeconds=" + MeasureSeconds.ToString(CultureInfo.InvariantCulture));
                 lines.Add("cacheTrustSec=" + CacheTrustSec.ToString(CultureInfo.InvariantCulture));
-                lines.Add("bgLines=" + BgLines.ToString(CultureInfo.InvariantCulture));
                 lines.Add("limitMarginDb=" + LimitMarginDb.ToString("0.0", CultureInfo.InvariantCulture));
                 lines.Add("toleranceDb=" + ToleranceDb.ToString("0.0", CultureInfo.InvariantCulture));
                 File.WriteAllLines(ConfigPath, lines.ToArray(), System.Text.Encoding.UTF8);
