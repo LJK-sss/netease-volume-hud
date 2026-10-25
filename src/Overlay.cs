@@ -57,6 +57,7 @@ namespace NvHud
         public event Action PositionChanged;
         public event Action ExitRequested;
         public event Action SettingsRequested;
+        public event Action AvatarNextRequested;    // 点一下圆形头像：换下一张
 
         public int Volume { get { return _volume; } }
 
@@ -440,6 +441,18 @@ namespace NvHud
             return lx <= 9f + iconD + 3f;
         }
 
+
+        /// <summary>是否点在圆形头像内部（用于"点一下换下一张"）。</summary>
+        private bool IsOnAvatar(Point p)
+        {
+            float s = BaseScale;
+            float lx = p.X / s, ly = p.Y / s;
+            float iconD = _animT > 0.5f ? 40f : 28f;
+            float cx = 9f + iconD / 2f;
+            float cy = (Renderer.H_HOVER * 0.62f);
+            float dx = lx - cx, dy = ly - cy;
+            return dx * dx + dy * dy <= (iconD / 2f) * (iconD / 2f);
+        }
         private bool IsOnGear(Point p)
         {
             if (!_hover) return false;   // 按钮只在悬停时可见，也就只在悬停时可点
@@ -549,6 +562,14 @@ namespace NvHud
                 }
                 else if (_moving)
                 {
+                    bool wasDrag = _rightMoved;
+                    if (!wasDrag && IsOnAvatar(e.Location) && AvatarNextRequested != null)
+                    {
+                        _moving = false;
+                        Capture = false;
+                        AvatarNextRequested();
+                        return;
+                    }
                     _moving = false;
                     Capture = false;
                     ClampToScreen();

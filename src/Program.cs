@@ -112,6 +112,14 @@ namespace NvHud
             _overlay.MenuRequested += ShowMenu;
             BuildMenu();
             _overlay.PositionChanged += SavePosition;
+            // 点一下圆形头像：立刻换下一张，并重置 30 秒计时
+            _overlay.AvatarNextRequested += delegate
+            {
+                if (Artwork.Count <= 1) return;
+                Artwork.Next();
+                _portraitFade.Start();
+                _portrait.Stop(); _portrait.Start();   // 重置计时
+            };
             _overlay.ExitRequested += delegate { Log.W("退出: 点了 × 按钮"); Application.Exit(); };
             _overlay.SettingsRequested += TogglePanel;
             // 弹出面板/菜单可见时，小窗不再抢占 Z 序

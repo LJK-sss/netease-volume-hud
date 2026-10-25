@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -58,11 +58,37 @@ namespace NvHud
                     files.AddRange(Directory.GetFiles(folder, pat));
                 files.Sort(StringComparer.OrdinalIgnoreCase);
 
+                // 可选：artwork\crop.txt 指定每张图的裁切焦点（0~1），例如 1.jpg=0.5,0.4
+                var focus = new Dictionary<string, PointF>(StringComparer.OrdinalIgnoreCase);
+                try
+                {
+                    string cfg = Path.Combine(folder, "crop.txt");
+                    if (File.Exists(cfg))
+                    {
+                        foreach (string raw in File.ReadAllLines(cfg))
+                        {
+                            string line = raw.Trim();
+                            int eq = line.IndexOf('=');
+                            if (eq <= 0) continue;
+                            string name = line.Substring(0, eq).Trim();
+                            string[] parts = line.Substring(eq + 1).Split(',');
+                            if (parts.Length < 2) continue;
+                            float cx, cy;
+                            if (float.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out cx)
+                                && float.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out cy))
+                                focus[Path.GetFileName(name)] = new PointF(cx, cy);
+                        }
+                    }
+                }
+                catch { }
+
                 foreach (string f in files)
                 {
                     try
                     {
-                        Bitmap b = Prepare(f);
+                        PointF fpt;
+                        if (!focus.TryGetValue(Path.GetFileName(f), out fpt)) fpt = new PointF(0.5f, 0.5f);
+                        Bitmap b = Prepare(f, fpt);
                         if (b != null) _faces.Add(b);
                     }
                     catch { }
@@ -97,13 +123,22 @@ namespace NvHud
         }
 
         /// <summary>居中方形裁切 → 240×240 → 对比增强 → 圆形遮罩 + 细白边。</summary>
-        private static Bitmap Prepare(string path)
+        /// <summary>按焦点裁成方形 → 240×240 → 圆形遮罩 + 细白边（保留彩色）。</summary>
+        private static Bitmap Prepare(string path, PointF focus)
         {
             using (var img = Image.FromFile(path))
             {
                 int side = Math.Min(img.Width, img.Height);
-                int sx = (img.Width - side) / 2;
-                int sy = (img.Height - side) / 2;
+
+                // 以焦点为中心裁方形，再把方框夹回图片范围内
+                float cx = Math.Max(0f, Math.Min(1f, focus.X)) * img.Width;
+                float cy = Math.Max(0f, Math.Min(1f, focus.Y)) * img.Height;
+                int sx = (int)Math.Round(cx - side / 2f);
+                int sy = (int)Math.Round(cy - side / 2f);
+                if (sx < 0) sx = 0;
+                if (sy < 0) sy = 0;
+                if (sx > img.Width - side) sx = img.Width - side;
+                if (sy > img.Height - side) sy = img.Height - side;
 
                 using (var sq = new Bitmap(Size, Size, PixelFormat.Format32bppArgb))
                 {
@@ -113,19 +148,6 @@ namespace NvHud
                         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
                         g.DrawImage(img, new Rectangle(0, 0, Size, Size),
                             new Rectangle(sx, sy, side, side), GraphicsUnit.Pixel);
-                    }
-
-                    // 灰度 + 对比增强：让画面在深色卡片上更立得住
-                    for (int y = 0; y < Size; y++)
-                    {
-                        for (int x = 0; x < Size; x++)
-                        {
-                            Color c = sq.GetPixel(x, y);
-                            int v = (int)((c.R * 0.3 + c.G * 0.59 + c.B * 0.11 - 128) * 1.35 + 128);
-                            if (v < 0) v = 0;
-                            if (v > 255) v = 255;
-                            sq.SetPixel(x, y, Color.FromArgb(255, v, v, v));
-                        }
                     }
 
                     var outp = new Bitmap(Size, Size, PixelFormat.Format32bppArgb);
