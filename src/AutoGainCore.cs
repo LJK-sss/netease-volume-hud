@@ -24,6 +24,9 @@ namespace NvHud
         private const int MaxSamples = 36000;     // 一首歌最多记 1 小时
 
         public float TargetDb = -21f;
+        /// <summary>置 true 时：照常采样、照常刷新读数，但不做定档/微调决策，也不写缓存。</summary>
+        public bool SuppressCommit;
+
         public float ToleranceDb = 1.5f;    // 目标区间半宽：落在 [TargetDb−tol, TargetDb+tol] 内就不动
 
         private readonly Dictionary<string, float> _cache = new Dictionary<string, float>(StringComparer.Ordinal);
@@ -177,6 +180,9 @@ namespace NvHud
                 LastMeasuredDb = dsp + (float)(20.0 * Math.Log10(sess));
             }
             // 样本还不够：不动作
+            // 缓存信任期内：样本已经进了 _src/_recent，读数也刷新过了，但暂不做决策、不写缓存
+            if (SuppressCommit) return false;
+
             if (_src.Count < MeasureSamples) return false;
 
             // 节流：每 6 秒最多评估一次（温和）

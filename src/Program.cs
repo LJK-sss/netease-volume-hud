@@ -21,6 +21,7 @@ namespace NvHud
         private ProcessCapture _cap;
         private uint _capturePid;
         private DateTime _lastPidCheck = DateTime.MinValue;   // 绑定的进程是否还活着
+        private DateTime _cacheTrustUntil = DateTime.MinValue;   // 缓存歌的"信任期"：这段时间内不自动改音量
         private DateTime _lastCapTry = DateTime.MinValue;
         private AutoGain _gain;
         private readonly Timer _audioTimer = new Timer();
@@ -391,6 +392,7 @@ namespace NvHud
                             {
                                 first = ClampToBase(first);
                                 Log.W("首曲(已认识) " + t + "  直接设为 " + (first * 100f).ToString("F0") + "%");
+                                _cacheTrustUntil = DateTime.Now.AddSeconds(20);
                                 SetSessionVolume(first, true);
                                 _committed = first; _limDb = 0f; _fastDb = -120f;
                                 _firstApplied = true; _limFeedbackUsed = false;
@@ -398,6 +400,7 @@ namespace NvHud
                             else
                             {
                                 Log.W("首曲开始测量: " + t);
+                            _cacheTrustUntil = DateTime.MinValue;
                             }
                         }
                         else
@@ -407,6 +410,7 @@ namespace NvHud
                             {
                                 cached = ClampToBase(cached);
                                 Log.W("切歌(已认识) " + prev + " -> " + t + "  直接设为 " + (cached * 100f).ToString("F0") + "%");
+                                _cacheTrustUntil = DateTime.Now.AddSeconds(20);
                                 SetSessionVolume(cached, true);
                                 _committed = cached; _limDb = 0f; _fastDb = -120f;
                                 _firstApplied = true; _limFeedbackUsed = false;
@@ -416,6 +420,7 @@ namespace NvHud
                                 float start = _cfg.DefaultVolume / 100f;
                                 if (start < 0.05f) start = 0.05f;
                                 Log.W("切歌(新歌) " + prev + " -> " + t + "  先回到基准 " + (start * 100f).ToString("F0") + "% 再测 " + _cfg.MeasureSeconds + " 秒");
+                                _cacheTrustUntil = DateTime.MinValue;
                                 SetSessionVolume(start, true);
                                 _committed = start; _limDb = 0f; _fastDb = -120f;
                                 _firstApplied = false; _limFeedbackUsed = false;
@@ -488,6 +493,14 @@ namespace NvHud
                 float desired = 0f;
                 bool got = false;
                 int n = 0;
+
+                // 缓存信任期：照常采样、照常显示，但不做自动音量决策（限幅器不受影响）
+                if (_gain != null)
+                {
+                    bool trusting = DateTime.Now < _cacheTrustUntil;
+                    if (_gain.SuppressCommit && !trusting) Log.W("缓存信任期结束，开始按实测校准 [" + _title + "]");
+                    _gain.SuppressCommit = trusting;
+                }
 
                 while (_cap.TryDequeue(out db))
                 {
