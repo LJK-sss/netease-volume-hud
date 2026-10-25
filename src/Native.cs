@@ -282,4 +282,36 @@ namespace NvHud
             _w = 0; _h = 0;
         }
     }
+
+    /// <summary>任务栏列表（用来确保 HUD 不出现在任务栏上）。</summary>
+    [ComImport, Guid("56FDF342-FD6D-11d0-958A-006097C9A090"),
+     InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface ITaskbarList
+    {
+        void HrInit();
+        void AddTab(IntPtr hwnd);
+        void DeleteTab(IntPtr hwnd);
+        void ActivateTab(IntPtr hwnd);
+        void SetActiveAlt(IntPtr hwnd);
+    }
+
+    [ComImport, Guid("56FDF344-FD6D-11d0-958A-006097C9A090"),
+     ClassInterface(ClassInterfaceType.None)]
+    internal class CTaskbarList { }
+
+    internal static class Taskbar
+    {
+        /// <summary>把窗口从任务栏上摘掉（即使它符合显示条件）。失败静默。</summary>
+        public static void HideFromTaskbar(IntPtr hwnd)
+        {
+            if (hwnd == IntPtr.Zero) return;
+            try
+            {
+                var tb = (ITaskbarList)new CTaskbarList();
+                tb.HrInit();
+                tb.DeleteTab(hwnd);
+            }
+            catch { }
+        }
+    }
 }

@@ -124,6 +124,7 @@ namespace NvHud
             _overlay.PopupVisible = delegate { return (_panel != null && _panel.Visible) || (_menu != null && _menu.Visible); };
 
             _overlay.ShowOverlay();
+            _overlay.SuppressTaskbar();   // 摘掉任务栏按钮（防止误关）
             InitPosition();
 
             _tick.Interval = 500;
@@ -885,6 +886,7 @@ namespace NvHud
         private void ShowOverlay()
         {
             _overlay.ShowOverlay();
+            _overlay.SuppressTaskbar();   // 摘掉任务栏按钮（防止误关）
             _overlay.RaiseNoActivate();
             UpdateUi(true);
         }

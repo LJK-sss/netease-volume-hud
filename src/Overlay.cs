@@ -91,10 +91,18 @@ namespace NvHud
             get
             {
                 CreateParams cp = base.CreateParams;
-                cp.ExStyle |= Native.WS_EX_LAYERED | Native.WS_EX_TOOLWINDOW
-                            | Native.WS_EX_NOACTIVATE | Native.WS_EX_TOPMOST;
+                // 注意：这里刻意不加 WS_EX_TOOLWINDOW。
+                // 直播姬等采集器的枚举条件是"可见 + 非工具窗口"，加了 TOOLWINDOW 就抓不到；
+                // 不占任务栏靠 WS_EX_NOACTIVATE + WinForms 的隐藏 owner 窗口保证（见 SuppressTaskbar）。
+                cp.ExStyle |= Native.WS_EX_LAYERED | Native.WS_EX_NOACTIVATE | Native.WS_EX_TOPMOST;
                 return cp;
             }
+        }
+
+        /// <summary>确保不出现在任务栏（去掉 TOOLWINDOW 后需要显式摘一次）。</summary>
+        public void SuppressTaskbar()
+        {
+            if (Handle != IntPtr.Zero) Taskbar.HideFromTaskbar(Handle);
         }
 
         public void SetPosition(int x, int y, bool save)
