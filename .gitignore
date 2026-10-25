@@ -4,6 +4,10 @@
 *.obj
 dist/
 
+# ---- 用户自己的头像图（个人素材，不入库）----
+artwork/
+artwork_src/
+
 # ---- 运行期数据（绝对不能提交）----
 LevelBand/
 NeteaseVolumeHUD/

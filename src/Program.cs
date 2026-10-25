@@ -49,6 +49,8 @@ namespace NvHud
         private readonly Timer _topmost = new Timer();   // 15 秒重申一次置顶（避免截图时频繁跳出）
         private readonly Timer _ramp = new Timer();
         private readonly Timer _hb = new Timer();      // 2 分钟一次心跳（内存/句柄趋势，排查静默退出）
+        private readonly Timer _portrait = new Timer();   // 头像轮换（30 秒）
+        private readonly Timer _portraitFade = new Timer();   // 轮换时的淡入淡出
 
         private string _title = "";
 
@@ -131,6 +133,30 @@ namespace NvHud
             _hb.Interval = 120000;   // 2 分钟
             _hb.Tick += delegate { LogHeartbeat(); };
             _hb.Start();
+
+            // 头像轮换：exe 同级 artwork\ 文件夹，每 30 秒换一张（300ms 淡入淡出）
+            try
+            {
+                string artDir = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath) ?? ".", "artwork");
+                Artwork.Load(artDir, Renderer.EmbeddedAvatar);
+                Log.W("头像加载: artwork 目录 " + artDir + " → " + Artwork.Count + " 张" + (Artwork.Count == 0 ? "（使用内置）" : ""));
+            }
+            catch (Exception ex) { Log.W("头像加载失败: " + ex.Message); }
+
+            _portrait.Interval = 30000;
+            _portrait.Tick += delegate
+            {
+                if (Artwork.Count <= 1) return;
+                Artwork.Next();
+                _portraitFade.Start();
+            };
+            _portraitFade.Interval = 33;
+            _portraitFade.Tick += delegate
+            {
+                if (!Artwork.TickFade()) _portraitFade.Stop();
+                _overlay.Repaint();
+            };
+            _portrait.Start();
 
             // 15 秒重申一次置顶：比原来 2 秒宽松，微信截图时不会频繁跳出来挡住画面
             _topmost.Interval = 15000;

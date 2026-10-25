@@ -38,6 +38,9 @@ namespace NvHud
         /// <summary>线稿水印浓度 0~1（可由参数面板调整）。</summary>
         public static float LineAlpha = 0.22f;
 
+        /// <summary>内置头像（exe 资源），artwork 文件夹为空时使用。</summary>
+        public static Bitmap EmbeddedAvatar { get { EnsureArt(); return _avatar; } }
+
         private static void EnsureArt()
         {
             if (_artTried) return;
@@ -119,6 +122,21 @@ namespace NvHud
             return sf;
         }
 
+        /// <summary>按 alpha 画一张图（用于头像淡入淡出）。</summary>
+        private static void DrawWithAlpha(Graphics g, Image img, RectangleF dst, float alpha)
+        {
+            if (img == null || alpha <= 0.01f) return;
+            if (alpha > 0.99f) { g.DrawImage(img, dst); return; }
+            var cm = new ColorMatrix();
+            cm.Matrix33 = alpha;
+            using (var ia = new ImageAttributes())
+            {
+                ia.SetColorMatrix(cm);
+                g.DrawImage(img, new Rectangle((int)dst.X, (int)dst.Y, (int)dst.Width, (int)dst.Height),
+                    0, 0, img.Width, img.Height, GraphicsUnit.Pixel, ia);
+            }
+        }
+
         public static void Draw(Graphics g, UiState st)
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -181,7 +199,8 @@ namespace NvHud
             // 图标位：有内置画作时用圆形头像，否则退回渐变圆 + 音符
             float iconX = 9f;
             float iconY = numCy - iconD / 2f;
-            if (_avatar != null)
+            Bitmap face = Artwork.Current;
+            if (face != null)
             {
                 var st1 = g.Save();
                 using (var ip2 = new GraphicsPath())
@@ -189,8 +208,17 @@ namespace NvHud
                     ip2.AddEllipse(iconX, iconY, iconD, iconD);
                     g.SetClip(ip2);
                     g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    g.DrawImage(_avatar, new RectangleF(iconX, iconY, iconD, iconD));
-                    if (off)   /* 离线时压暗 */
+                    // 轮换时淡入淡出：上一张逐渐透明，当前张逐渐显现
+                    if (Artwork.HasFade && Artwork.Previous != null)
+                    {
+                        DrawWithAlpha(g, Artwork.Previous, new RectangleF(iconX, iconY, iconD, iconD), 1f - Artwork.Fade);
+                        DrawWithAlpha(g, face, new RectangleF(iconX, iconY, iconD, iconD), Artwork.Fade);
+                    }
+                    else
+                    {
+                        g.DrawImage(face, new RectangleF(iconX, iconY, iconD, iconD));
+                    }
+                    if (off)
                     {
                         using (var dim = new SolidBrush(C(40, 40, 46, 190))) g.FillPath(dim, ip2);
                     }

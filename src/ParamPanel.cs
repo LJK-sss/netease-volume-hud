@@ -27,7 +27,7 @@ namespace NvHud
         public float TargetDb = -20f;
         public int MeasureSec = 8;
         public int CacheTrustSec = 20;
-        public int BgLines = 22;
+        public int BgLines = 0;
         public float LimitMargin = 4f;
         public float Tolerance = 1.5f;
         public bool AutoGainOn = true;

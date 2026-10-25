@@ -22,7 +22,7 @@ namespace NvHud
         public float TargetDb = -26f;       // 目标响度：P90 RMS dBFS（可用"校准"重设）
         public int MeasureSeconds = 12;      // 每首歌测量时长（秒）
         public int CacheTrustSec = 20;       // 缓存信任期（秒）：开头这段时间内不自动改音量
-        public int BgLines = 22;             // 卡片背景线稿水印浓度（0~40）
+        public int BgLines = 0;             // 卡片背景线稿水印浓度（0~40）
         public float ToleranceDb = 1.5f;    // 目标区间半宽（±dB）
         public float LimitMarginDb = 4f;    // 限幅余量：超过"基准响度 + 该值"才限幅
 

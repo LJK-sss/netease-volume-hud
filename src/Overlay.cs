@@ -168,6 +168,9 @@ namespace NvHud
             }
         }
 
+        /// <summary>外部触发重绘（头像轮换的淡入淡出用）。</summary>
+        public void Repaint() { Render(); }
+
         private void Render()
         {
             if (Handle == IntPtr.Zero || !Visible) return;
