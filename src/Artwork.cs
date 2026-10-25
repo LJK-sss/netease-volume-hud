@@ -7,49 +7,33 @@ using System.IO;
 
 namespace NvHud
 {
-    /// <summary>
-    /// 头像轮换：从 exe 同级的 artwork\ 文件夹读取图片，预处理成圆形头像，按时间轮换。
-    /// 文件夹为空时退回内置的那张。
-    /// </summary>
     internal static class Artwork
     {
         public const int Size = 240;
+        private const int CacheLimit = 4;
 
-        private static readonly List<Bitmap> _faces = new List<Bitmap>();
+        private static readonly List<string> _paths = new List<string>();
+        private static readonly Dictionary<string, PointF> _focus = new Dictionary<string, PointF>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<int, Bitmap> _cache = new Dictionary<int, Bitmap>();
+        private static readonly List<int> _cacheOrder = new List<int>();
+
         private static Bitmap _embedded;
-
         private static int _index;
-        private static Bitmap _prev;
+        private static int _prevIndex = -1;
         private static DateTime _fadeStart = DateTime.MinValue;
         private static readonly TimeSpan FadeLen = TimeSpan.FromMilliseconds(300);
 
-        /// <summary>0 = 完全是上一张，1 = 完全是当前这张。</summary>
         public static float Fade = 1f;
+        public static int Count { get { return _paths.Count; } }
+        public static Bitmap Current { get { return Get(_index); } }
+        public static Bitmap Previous { get { return _prevIndex >= 0 ? Get(_prevIndex) : null; } }
+        public static bool HasFade { get { return Fade < 0.999f && _prevIndex >= 0; } }
 
-        public static int Count { get { return _faces.Count; } }
-
-        public static Bitmap Current
-        {
-            get
-            {
-                if (_faces.Count == 0) return _embedded;
-                return _faces[_index % _faces.Count];
-            }
-        }
-
-        public static Bitmap Previous { get { return _prev; } }
-
-        public static bool HasFade { get { return Fade < 0.999f && _prev != null; } }
-
-        /// <summary>扫描文件夹并预处理。folder 不存在或为空时只用内置图。</summary>
         public static void Load(string folder, Bitmap embedded)
         {
             _embedded = embedded;
-            _faces.Clear();
-            _index = 0;
-            _prev = null;
-            Fade = 1f;
-
+            _paths.Clear(); _focus.Clear(); _cache.Clear(); _cacheOrder.Clear();
+            _index = 0; _prevIndex = -1; Fade = 1f;
             try
             {
                 if (!Directory.Exists(folder)) return;
@@ -57,9 +41,8 @@ namespace NvHud
                 foreach (string pat in new[] { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif" })
                     files.AddRange(Directory.GetFiles(folder, pat));
                 files.Sort(StringComparer.OrdinalIgnoreCase);
+                _paths.AddRange(files);
 
-                // 可选：artwork\crop.txt 指定每张图的裁切焦点（0~1），例如 1.jpg=0.5,0.4
-                var focus = new Dictionary<string, PointF>(StringComparer.OrdinalIgnoreCase);
                 try
                 {
                     string cfg = Path.Combine(folder, "crop.txt");
@@ -70,67 +53,82 @@ namespace NvHud
                             string line = raw.Trim();
                             int eq = line.IndexOf('=');
                             if (eq <= 0) continue;
-                            string name = line.Substring(0, eq).Trim();
+                            string name = Path.GetFileName(line.Substring(0, eq).Trim());
                             string[] parts = line.Substring(eq + 1).Split(',');
                             if (parts.Length < 2) continue;
                             float cx, cy;
                             if (float.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out cx)
                                 && float.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out cy))
-                                focus[Path.GetFileName(name)] = new PointF(cx, cy);
+                                _focus[name] = new PointF(cx, cy);
                         }
                     }
                 }
                 catch { }
-
-                foreach (string f in files)
-                {
-                    try
-                    {
-                        PointF fpt;
-                        if (!focus.TryGetValue(Path.GetFileName(f), out fpt)) fpt = new PointF(0.5f, 0.5f);
-                        Bitmap b = Prepare(f, fpt);
-                        if (b != null) _faces.Add(b);
-                    }
-                    catch { }
-                }
             }
             catch { }
         }
 
-        /// <summary>切到下一张并开始淡入。</summary>
         public static void Next()
         {
-            if (_faces.Count <= 1) return;
-            _prev = Current;
-            _index = (_index + 1) % _faces.Count;
+            if (_paths.Count <= 1) return;
+            _prevIndex = _index;
+            _index = (_index + 1) % _paths.Count;
+            Get(_index);
             _fadeStart = DateTime.Now;
             Fade = 0f;
         }
 
-        /// <summary>推进淡入进度；返回 true 表示还在过渡中。</summary>
         public static bool TickFade()
         {
             if (Fade >= 1f) return false;
             double ms = (DateTime.Now - _fadeStart).TotalMilliseconds;
             Fade = (float)Math.Min(1.0, ms / FadeLen.TotalMilliseconds);
-            if (Fade >= 1f)
-            {
-                Fade = 1f;
-                _prev = null;
-                return false;
-            }
+            if (Fade >= 1f) { Fade = 1f; _prevIndex = -1; return false; }
             return true;
         }
 
-        /// <summary>居中方形裁切 → 240×240 → 对比增强 → 圆形遮罩 + 细白边。</summary>
-        /// <summary>按焦点裁成方形 → 240×240 → 圆形遮罩 + 细白边（保留彩色）。</summary>
+        private static Bitmap Get(int i)
+        {
+            if (_paths.Count == 0) return _embedded;
+            if (i < 0 || i >= _paths.Count) i = 0;
+
+            Bitmap bmp;
+            if (_cache.TryGetValue(i, out bmp)) { Touch(i); return bmp; }
+
+            try
+            {
+                PointF fpt;
+                if (!_focus.TryGetValue(Path.GetFileName(_paths[i]), out fpt)) fpt = new PointF(0.5f, 0.5f);
+                bmp = Prepare(_paths[i], fpt);
+            }
+            catch { return _embedded; }
+
+            if (bmp == null) return _embedded;
+            _cache[i] = bmp;
+            Touch(i);
+            Evict();
+            return bmp;
+        }
+
+        private static void Touch(int i) { _cacheOrder.Remove(i); _cacheOrder.Add(i); }
+
+        private static void Evict()
+        {
+            while (_cacheOrder.Count > CacheLimit)
+            {
+                int victim = _cacheOrder[0];
+                _cacheOrder.RemoveAt(0);
+                if (victim == _index || victim == _prevIndex) continue;
+                Bitmap b;
+                if (_cache.TryGetValue(victim, out b)) { _cache.Remove(victim); try { b.Dispose(); } catch { } }
+            }
+        }
+
         private static Bitmap Prepare(string path, PointF focus)
         {
             using (var img = Image.FromFile(path))
             {
                 int side = Math.Min(img.Width, img.Height);
-
-                // 以焦点为中心裁方形，再把方框夹回图片范围内
                 float cx = Math.Max(0f, Math.Min(1f, focus.X)) * img.Width;
                 float cy = Math.Max(0f, Math.Min(1f, focus.Y)) * img.Height;
                 int sx = (int)Math.Round(cx - side / 2f);
@@ -146,10 +144,8 @@ namespace NvHud
                     {
                         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                        g.DrawImage(img, new Rectangle(0, 0, Size, Size),
-                            new Rectangle(sx, sy, side, side), GraphicsUnit.Pixel);
+                        g.DrawImage(img, new Rectangle(0, 0, Size, Size), new Rectangle(sx, sy, side, side), GraphicsUnit.Pixel);
                     }
-
                     var outp = new Bitmap(Size, Size, PixelFormat.Format32bppArgb);
                     using (var g = Graphics.FromImage(outp))
                     {
