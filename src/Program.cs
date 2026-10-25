@@ -145,9 +145,10 @@ namespace NvHud
             // 头像轮换：exe 同级 artwork\ 文件夹，每 30 秒换一张（300ms 淡入淡出）
             try
             {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 string artDir = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath) ?? ".", "artwork");
                 Artwork.Load(artDir, Renderer.EmbeddedAvatar);
-                Log.W("头像加载: artwork 目录 " + artDir + " → " + Artwork.Count + " 张" + (Artwork.Count == 0 ? "（使用内置）" : ""));
+                Log.W("头像加载: " + Artwork.Count + " 张，耗时 " + sw.ElapsedMilliseconds + " ms" + (Artwork.Count == 0 ? "（使用内置）" : ""));
             }
             catch (Exception ex) { Log.W("头像加载失败: " + ex.Message); }
 
