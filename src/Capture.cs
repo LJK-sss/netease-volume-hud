@@ -127,6 +127,7 @@ namespace NvHud
             Stop();
             int gen = ++_gen;
             _pid = pid;
+            _running = true;
             _thread = new Thread(delegate() { Loop(gen); });
             _thread.IsBackground = true;
             _thread.Name = "NvCapture";
