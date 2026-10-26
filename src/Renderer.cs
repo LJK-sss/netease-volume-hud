@@ -40,6 +40,7 @@ namespace NvHud
 
         /// <summary>频谱柱子浓度 0~1（参数面板可调）。</summary>
         public static float SpectrumAlpha = 0.28f;
+        public static int SpectrumStyle;     // 0 不对称 / 1 上下对称 / 2 左右对称
 
         private static void EnsureArt()
         {
@@ -129,8 +130,8 @@ namespace NvHud
         {
             const float X0 = 56f;
             const float X1 = 187f;
-            const float TOP = 30f;      // 柱子的最高点（标题下方）
-            float bottom = h - 5f;      // 底线：卡片底往上 5
+            const float TOP = 30f;
+            float bottom = h - 5f;
             float w = X1 - X0;
             float maxH = bottom - TOP;
             if (maxH <= 2f) return;
@@ -139,6 +140,7 @@ namespace NvHud
             if (n <= 0) return;
             float pitch = w / n;
             float bw = Math.Max(1.2f, pitch - 1.1f);
+            float cy = TOP + maxH / 2f;
 
             int a = (int)(255 * Math.Max(0f, Math.Min(1f, SpectrumAlpha)));
             var st0 = g.Save();
@@ -151,17 +153,32 @@ namespace NvHud
             {
                 for (int i = 0; i < n; i++)
                 {
-                    float v = bars[i];
+                    // 左右对称：右半边用左半边的镜像
+                    int src = SpectrumStyle == 2 ? (i < n / 2 ? i : n - 1 - i) : i;
+                    if (src < 0 || src >= n) continue;
+                    float v = bars[src];
                     if (v < 0.02f) continue;
                     float bh = Math.Max(1.5f, v * maxH);
                     float x = X0 + i * pitch;
-                    g.FillRectangle(br, x, bottom - bh, bw, bh);
+                    if (SpectrumStyle == 1)
+                    {
+                        // 上下对称：以中线为轴
+                        float half = Math.Max(1.0f, v * maxH / 2f);
+                        g.FillRectangle(br, x, cy - half, bw, half * 2f);
+                    }
+                    else
+                    {
+                        g.FillRectangle(br, x, bottom - bh, bw, bh);
+                    }
                 }
             }
 
-            // 1px 底线
-            using (var bb = new SolidBrush(Color.FromArgb(Math.Min(255, a + 40), 240, 240, 248)))
-                g.FillRectangle(bb, X0, bottom - 0.5f, w, 0.8f);
+            // 1px 底线（上下对称时不画，否则没有"底"的概念）
+            if (SpectrumStyle != 1)
+            {
+                using (var bb = new SolidBrush(Color.FromArgb(Math.Min(255, a + 40), 240, 240, 248)))
+                    g.FillRectangle(bb, X0, bottom - 0.5f, w, 0.8f);
+            }
 
             g.Restore(st0);
         }

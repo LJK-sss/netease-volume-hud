@@ -19,7 +19,7 @@ namespace NvHud
         public const float W_LOGICAL = 216f;
         public const float ROW_H = 30f;
         public const float PAD_Y = 7f;
-        public const int ROWS = 10;
+        public const int ROWS = 9;
 
         public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ROWS; } }
 
@@ -232,8 +232,8 @@ namespace NvHud
 
                         case 5: label = "限幅余量"; value = LimitMargin.ToString("0.0") + " dB"; break;
                         case 6: label = "音量"; value = LiveVolume + "%"; arrows = false; break;
-                        case 7: label = "频谱浓度"; value = SpectrumPct + "%"; break;
-                        case 8: label = "自动增益"; value = AutoGainOn ? "开" : "关"; arrows = false; break;
+
+                        case 7: label = "自动增益"; value = AutoGainOn ? "开" : "关"; arrows = false; break;
                         default: label = "恢复默认"; arrows = false; break;
                     }
 
@@ -256,7 +256,7 @@ namespace NvHud
                     using (var b = new SolidBrush(C(232, 234, 242, 255)))   // 与右键菜单同亮度
                         g.DrawString(label, _fLabel, b, new RectangleF(14, y + 2, 90, ROW_H - 4), sfL);
 
-                    Color vc = (i == 8 && !AutoGainOn) ? C(140, 142, 156, 255) : C(246, 246, 250, 255);
+                    Color vc = (i == 7 && !AutoGainOn) ? C(140, 142, 156, 255) : C(246, 246, 250, 255);
                     RectangleF vr = (i == 6) ? new RectangleF(w - 74, y + 2, 60, ROW_H - 4)
                                             : new RectangleF(w - 132, y + 2, 76, ROW_H - 4);
                     using (var b = new SolidBrush(vc))
@@ -290,7 +290,7 @@ namespace NvHud
                         DrawChevron(g, w - 40, y + ROW_H / 2f, false, HoverRow == i && HoverZone == 1);
                         DrawChevron(g, w - 18, y + ROW_H / 2f, true, HoverRow == i && HoverZone == 2);
                     }
-                    else if (i == 8)
+                    else if (i == 7)
                     {
                         // 开关小胶囊
                         float pw2 = 34f, ph2 = 17f;
@@ -419,13 +419,9 @@ namespace NvHud
                     ApplyVolumeAt(e.Location);
                     break;
                 case 7:
-                    if (zone == 1 && SpectrumStep != null) SpectrumStep(-5);
-                    else if (zone == 2 && SpectrumStep != null) SpectrumStep(5);
-                    break;
-                case 8:
                     if (ToggleAutoGain != null) ToggleAutoGain();
                     break;
-                case 9:
+                case 8:
                     if (ResetDefaults != null) ResetDefaults();
                     break;
             }

@@ -8,7 +8,7 @@ namespace NvHud
     /// </summary>
     internal static class Spectrum
     {
-        public const int Bands = 44;
+        public const int Bands = 28;
         public const int FftSize = 1024;
         private const int SampleRate = 44100;
 

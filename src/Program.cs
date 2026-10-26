@@ -170,7 +170,8 @@ namespace NvHud
 
             // 频谱：只在有声音时重绘（约 30fps），停播时慢慢收回
             Renderer.SpectrumAlpha = _cfg.Spectrum / 100f;
-            _spec.Interval = 50;   // 20fps：柱子够顺，CPU 更省
+            Renderer.SpectrumStyle = _cfg.SpectrumStyle;
+            _spec.Interval = 66;   // 15fps
             _spec.Tick += delegate
             {
                 try
@@ -739,7 +740,6 @@ namespace NvHud
                 _panel.TargetStep += delegate(int d) { SetTargetDb(_cfg.TargetDb + d); };
                 _panel.MeasureStep += delegate(int d) { SetMeasure(_cfg.MeasureSeconds + d); };
             _panel.LiveVolumeSet += delegate(int v) { OnPanelVolume(v); };
-            _panel.SpectrumStep += delegate(int d) { SetSpectrum(_cfg.Spectrum + d); };
             _panel.TrustStep += delegate(int d) { SetCacheTrust(_cfg.CacheTrustSec + d); };
                 _panel.MarginStep += delegate(int d) { SetLimitMargin(_cfg.LimitMarginDb + d); };
                 _panel.ToleranceStep += delegate(int d) { SetTolerance(_cfg.ToleranceDb + d * 0.5f); };
@@ -931,9 +931,21 @@ namespace NvHud
             _cfg.Spectrum = v;
             _cfg.Save();
             Renderer.SpectrumAlpha = v / 100f;
-            if (_panel != null) { _panel.SpectrumPct = v; _panel.Refresh_(); }
+            if (_menu != null) { _menu.SpectrumPct = v; _menu.Refresh_(); }
             _overlay.Repaint();
             Log.W("参数: 频谱浓度 = " + v + "%");
+        }
+
+        private void SetSpectrumStyle(int v)
+        {
+            if (v < 0) v = 0;
+            if (v > 2) v = 2;
+            _cfg.SpectrumStyle = v;
+            _cfg.Save();
+            Renderer.SpectrumStyle = v;
+            if (_menu != null) { _menu.SpectrumStyle = v; _menu.Refresh_(); }
+            _overlay.Repaint();
+            Log.W("参数: 频谱样式 = " + (v == 0 ? "不对称" : (v == 1 ? "上下对称" : "左右对称")));
         }
 
         private void OnMuteToggle()
@@ -975,6 +987,12 @@ namespace NvHud
                 RefreshMenu();
             };
             _menu.ExitRequested += delegate { Log.W("退出: 右键菜单里选了退出"); Application.Exit(); };
+            _menu.SpectrumStyleCycle += delegate
+            {
+                SetSpectrumStyle(_cfg.SpectrumStyle + 1);
+                RefreshMenu();
+            };
+            _menu.SpectrumStep += delegate(int d) { SetSpectrum(_cfg.Spectrum + d); RefreshMenu(); };
         }
 
         private void SyncMenuState()
