@@ -26,6 +26,7 @@ namespace NvHud
         private DateTime _marqueeHoldUntil = DateTime.MinValue;
         private DateTime _marqueeEpoch = DateTime.MinValue;   // 本段滚动的起点（时间基准，避免抖动累积）
         private float _marqueeTravel = 1f;                   // 本段滚动总时长（秒）
+        private const int MarqueeIntervalMs = 333;   // 跑马灯刷新：3fps
 
         private readonly Timer _leaveGuard;
 
@@ -78,7 +79,7 @@ namespace NvHud
             _leaveGuard.Interval = 120;
             _leaveGuard.Tick += new EventHandler(LeaveGuardTick);
 
-            _marquee.Interval = 16;             // 60 fps：运动更细腻
+            _marquee.Interval = MarqueeIntervalMs;   // 位置按时间算，降低 fps 只影响平滑度
             _marquee.Tick += MarqueeTick;
 
             Native.EnableDpiAware();
