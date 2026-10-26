@@ -50,7 +50,9 @@ namespace NvHud
         private readonly Timer _hb = new Timer();      // 2 分钟一次心跳（内存/句柄趋势，排查静默退出）
         private readonly Timer _portrait = new Timer();   // 头像轮换（30 秒）
         private readonly Timer _portraitFade = new Timer();   // 轮换时的淡入淡出
-        private readonly Timer _spec = new Timer();       // 频谱分析（约 30fps）
+        private readonly Timer _anim = new Timer();       // 统一渲染调度（频谱 + 走马灯）
+        private DateTime _lastSpecTick = DateTime.MinValue;
+        private const int SpecFps = 15;                   // 频谱刷新率
         private readonly float[] _specBuf = new float[Spectrum.FftSize];
 
         private string _title = "";
@@ -172,28 +174,17 @@ namespace NvHud
             Renderer.SpectrumAlpha = _cfg.Spectrum / 100f;
             _overlay.MarqueeStep = _cfg.MarqueeStep;
             _overlay.MarqueeFps = _cfg.MarqueeFps;
+            // 统一渲染调度：频谱 15fps、走马灯按自己的 fps 推进，
+            // 两个变化合并成一帧重绘，避免"两个定时器各画一遍"
+            Renderer.SpectrumAlpha = _cfg.Spectrum / 100f;
+            _overlay.MarqueeStep = _cfg.MarqueeStep;
+            _overlay.MarqueeFps = _cfg.MarqueeFps;
             _overlay.MarqueeHoldMs = _cfg.MarqueeHoldMs;
-            _overlay.ApplyMarqueeRate();
-            _spec.Interval = 66;   // 15fps
-            _spec.Tick += delegate
-            {
-                try
-                {
-                    if (_cfg.Spectrum <= 0) return;
-                    if (_cap != null && _cap.IsRunning && _cap.CopySamples(_specBuf))
-                    {
-                        Spectrum.Analyze(_specBuf, CurrentSession() * 100f);
-                        _overlay.Repaint();
-                    }
-                    else
-                    {
-                        Spectrum.Decay();
-                        _overlay.Repaint();
-                    }
-                }
-                catch { }
-            };
-            _spec.Start();
+
+            int animFps = Math.Max(SpecFps, Math.Min(60, Math.Max(2, _cfg.MarqueeFps)));
+            _anim.Interval = Math.Max(15, 1000 / animFps);
+            _anim.Tick += OnAnimTick;
+            _anim.Start();
 
             // 15 秒重申一次置顶：比原来 2 秒宽松，微信截图时不会频繁跳出来挡住画面
             _topmost.Interval = 15000;
@@ -559,6 +550,29 @@ namespace NvHud
             if (_session == null) return _cfg.DefaultVolume / 100f;
             float v = _session.GetVolume();
             return v < 0f ? _cfg.DefaultVolume / 100f : v;
+        }
+
+        /// <summary>统一渲染调度：频谱 15fps、走马灯按自己的 fps，合并为每帧最多重绘一次。</summary>
+        private void OnAnimTick(object sender, EventArgs e)
+        {
+            try
+            {
+                bool dirty = false;
+
+                if ((DateTime.Now - _lastSpecTick).TotalMilliseconds >= 1000.0 / SpecFps)
+                {
+                    _lastSpecTick = DateTime.Now;
+                    if (_cfg.Spectrum > 0 && _cap != null && _cap.IsRunning && _cap.CopySamples(_specBuf))
+                        Spectrum.Analyze(_specBuf, CurrentSession() * 100f);
+                    else
+                        Spectrum.Decay();
+                    dirty = true;
+                }
+
+                if (_overlay.TickMarquee()) dirty = true;
+                if (dirty) _overlay.Repaint();
+            }
+            catch { }
         }
 
         private void OnAudioTick(object sender, EventArgs e)
@@ -937,50 +951,9 @@ namespace NvHud
             Log.W("参数: 频谱浓度 = " + v + "%");
         }
 
-        private static readonly int[] FpsPresets = new int[] { 2, 3, 5, 8, 10, 15, 20, 30, 60 };
-        private static readonly int[] HoldPresets = new int[] { 0, 300, 600, 1000, 1500, 2000 };
 
-        private void SetMarqueeStep(int v)
-        {
-            if (v < 1) v = 1;
-            if (v > 16) v = 16;
-            _cfg.MarqueeStep = v;
-            _cfg.Save();
-            _overlay.MarqueeStep = v;
-            if (_menu != null) { _menu.MarqueeStep = v; _menu.Refresh_(); }
-            Log.W("参数: 走马灯步长 = " + v + " px");
-        }
 
-        private void CycleMarqueeFps(int dir)
-        {
-            int idx = Array.IndexOf(FpsPresets, _cfg.MarqueeFps);
-            if (idx < 0) idx = 1;
-            idx += dir > 0 ? 1 : -1;
-            if (idx < 0) idx = 0;
-            if (idx >= FpsPresets.Length) idx = FpsPresets.Length - 1;
-            int v = FpsPresets[idx];
-            _cfg.MarqueeFps = v;
-            _cfg.Save();
-            _overlay.MarqueeFps = v;
-            _overlay.ApplyMarqueeRate();
-            if (_menu != null) { _menu.MarqueeFps = v; _menu.Refresh_(); }
-            Log.W("参数: 走马灯刷新率 = " + v + " fps");
-        }
 
-        private void CycleMarqueeHold(int dir)
-        {
-            int idx = Array.IndexOf(HoldPresets, _cfg.MarqueeHoldMs);
-            if (idx < 0) idx = 3;
-            idx += dir > 0 ? 1 : -1;
-            if (idx < 0) idx = 0;
-            if (idx >= HoldPresets.Length) idx = HoldPresets.Length - 1;
-            int v = HoldPresets[idx];
-            _cfg.MarqueeHoldMs = v;
-            _cfg.Save();
-            _overlay.MarqueeHoldMs = v;
-            if (_menu != null) { _menu.MarqueeHoldMs = v; _menu.Refresh_(); }
-            Log.W("参数: 走马灯停顿 = " + v + " ms");
-        }
 
 
         private void OnMuteToggle()
@@ -1026,9 +999,6 @@ namespace NvHud
                 RefreshMenu();
             };
             _menu.SpectrumStep += delegate(int d) { SetSpectrum(_cfg.Spectrum + d); RefreshMenu(); };
-            _menu.MarqueeStepDelta += delegate(int d) { SetMarqueeStep(_cfg.MarqueeStep + d); };
-            _menu.MarqueeFpsCycle += delegate(int d) { CycleMarqueeFps(d); };
-            _menu.MarqueeHoldCycle += delegate(int d) { CycleMarqueeHold(d); };
         }
 
         private void SyncMenuState()

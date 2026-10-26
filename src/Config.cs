@@ -22,9 +22,9 @@ namespace NvHud
         public int MeasureSeconds = 12;      // 每首歌测量时长（秒）
         public int CacheTrustSec = 20;       // 缓存信任期（秒）：开头这段时间内不自动改音量
         public int Spectrum = 28;            // 频谱柱子浓度（0~50）
-        public int MarqueeStep = 8;          // 跑马灯每帧位移（逻辑像素）
-        public int MarqueeFps = 3;           // 跑马灯刷新率
-        public int MarqueeHoldMs = 1000;     // 开头/结尾停顿（毫秒）
+        public int MarqueeStep = 1;          // 跑马灯每帧位移（逻辑像素）
+        public int MarqueeFps = 15;           // 跑马灯刷新率
+        public int MarqueeHoldMs = 2000;     // 开头/结尾停顿（毫秒）
         public float ToleranceDb = 1.5f;    // 目标区间半宽（±dB）
         public float LimitMarginDb = 4f;    // 限幅余量：超过"基准响度 + 该值"才限幅
 

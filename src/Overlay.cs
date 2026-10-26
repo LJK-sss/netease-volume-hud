@@ -19,15 +19,16 @@ namespace NvHud
         private Bitmap _buf;            // 复用绘制缓冲，避免每帧分配
         private Graphics _bufG;
         // 长标题滚动（仅悬停且文字溢出时启用，30fps）
-        private readonly Timer _marquee = new Timer();
         private float _marqueePos;
         private float _marqueeMax;
         private bool _marqueeAtEnd;
+        private bool _marqueeActive;
+        private DateTime _marqueeLastStep = DateTime.MinValue;
         private DateTime _marqueeHoldUntil = DateTime.MinValue;
         // 跑马灯参数（右键菜单「走马灯参数」里可调）
-        public int MarqueeStep = 8;        // 每帧位移（逻辑像素）
-        public int MarqueeFps = 3;         // 刷新率
-        public int MarqueeHoldMs = 1000;   // 开头/结尾停顿
+        public int MarqueeStep = 1;        // 每帧位移（逻辑像素）
+        public int MarqueeFps = 15;         // 刷新率
+        public int MarqueeHoldMs = 2000;   // 开头/结尾停顿
 
         private readonly Timer _leaveGuard;
 
@@ -80,8 +81,6 @@ namespace NvHud
             _leaveGuard.Interval = 120;
             _leaveGuard.Tick += new EventHandler(LeaveGuardTick);
 
-            ApplyMarqueeRate();
-            _marquee.Tick += MarqueeTick;
 
             Native.EnableDpiAware();
         }
@@ -358,42 +357,43 @@ namespace NvHud
             if (_marqueeMax < 6f) return;          // 没溢出就不动
             _marqueePos = 0f;
             _marqueeAtEnd = false;
+            _marqueeActive = true;
+            _marqueeLastStep = DateTime.Now;
             _marqueeHoldUntil = DateTime.Now.AddMilliseconds(MarqueeHoldMs);   // 开头停顿
-            ApplyMarqueeRate();
-            _marquee.Start();
-        }
-
-        /// <summary>把刷新率作用到定时器上（参数改了以后调用）。</summary>
-        public void ApplyMarqueeRate()
-        {
-            int fps = MarqueeFps;
-            if (fps < 2) fps = 2;
-            if (fps > 60) fps = 60;
-            _marquee.Interval = Math.Max(15, 1000 / fps);
         }
 
         private void StopMarquee()
         {
-            if (_marquee.Enabled) _marquee.Stop();
+            _marqueeActive = false;
             _marqueeAtEnd = false;
             _marqueeMax = 0f;
             if (_marqueePos != 0f) { _marqueePos = 0f; Render(); }
         }
 
-        /// <summary>每帧前进 MarqueeStep 个逻辑像素；到头停 MarqueeHoldMs，回到开头再停一次。</summary>
-        private void MarqueeTick(object sender, EventArgs e)
+        /// <summary>
+        /// 由外部统一调度（和频谱共用一个定时器）：到点就前进一个步长。
+        /// 返回 true 表示这一帧位置变了、需要重绘。
+        /// </summary>
+        public bool TickMarquee()
         {
-            if (string.IsNullOrEmpty(_title)) { StopMarquee(); return; }
-            if (DateTime.Now < _marqueeHoldUntil) return;
+            if (!_marqueeActive) return false;
+            DateTime now = DateTime.Now;
+            if (now < _marqueeHoldUntil) return false;
 
             if (_marqueeAtEnd)
             {
                 _marqueePos = 0f;
                 _marqueeAtEnd = false;
-                _marqueeHoldUntil = DateTime.Now.AddMilliseconds(MarqueeHoldMs);
-                Render();
-                return;
+                _marqueeLastStep = now;
+                _marqueeHoldUntil = now.AddMilliseconds(MarqueeHoldMs);
+                return true;
             }
+
+            int fps = MarqueeFps;
+            if (fps < 2) fps = 2;
+            if (fps > 60) fps = 60;
+            if ((now - _marqueeLastStep).TotalMilliseconds < 1000.0 / fps) return false;
+            _marqueeLastStep = now;
 
             float step = MarqueeStep;
             if (step < 1f) step = 1f;
@@ -402,9 +402,9 @@ namespace NvHud
             {
                 _marqueePos = _marqueeMax;
                 _marqueeAtEnd = true;
-                _marqueeHoldUntil = DateTime.Now.AddMilliseconds(MarqueeHoldMs);
+                _marqueeHoldUntil = now.AddMilliseconds(MarqueeHoldMs);
             }
-            Render();
+            return true;
         }
 
         private float BarStartX
