@@ -17,7 +17,8 @@ namespace NvHud
 
         // 显示范围（dB）：低于 Floor 为 0，高于 Ceil 为满格
         private const float FloorDb = -72f;
-        private const float CeilDb = -18f;
+        private const float CeilDb = -10f;
+        private const float Gamma = 1.4f;      // 高度曲线：>1 让中段更矮
 
         private static readonly float[] _window = new float[FftSize];
         private static readonly double[] _re = new double[FftSize];
@@ -95,6 +96,7 @@ namespace NvHud
                 float v = (float)((db - FloorDb) / (CeilDb - FloorDb));
                 if (v < 0f) v = 0f;
                 if (v > 1f) v = 1f;
+                v = (float)Math.Pow(v, Gamma);   // 中段压矮、峰值保留
 
                 // 上升快、下落慢，跳起来有弹性但不抖
                 float prev = _bars[b];
