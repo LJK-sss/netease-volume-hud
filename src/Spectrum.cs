@@ -51,10 +51,16 @@ namespace NvHud
 
         public static float[] Bars { get { return _bars; } }
 
-        /// <summary>没有音频时把柱子慢慢收回去。</summary>
-        public static void Decay()
+        /// <summary>没有音频时把柱子收回去；返回 true 表示还有可见的柱子（需要重绘）。</summary>
+        public static bool Decay()
         {
-            for (int i = 0; i < Bands; i++) _bars[i] *= 0.90f;
+            bool any = false;
+            for (int i = 0; i < Bands; i++)
+            {
+                _bars[i] *= 0.90f;
+                if (_bars[i] > 0.01f) any = true;
+            }
+            return any;
         }
 
         public static void Clear()

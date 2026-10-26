@@ -34,7 +34,6 @@ namespace NvHud
 
         private float _animT = 1f;    // 永久展开（不再做高度动画）
         private bool _hover;
-        private bool _draggingLeft;
         private bool _moving;
         private bool _rightMoved;
         private bool _rightOnGear;   // 右键是否落在"菜单"按钮上（只有按钮才弹菜单）
@@ -325,7 +324,7 @@ namespace NvHud
         private void LeaveGuardTick(object sender, EventArgs e)
         {
             _leaveGuard.Stop();
-            if (_draggingLeft || _moving) return;
+            if (_moving) return;
             if (ClientRectangle.Contains(PointToClient(Cursor.Position))) return;
             SetHover(false);
         }
@@ -392,7 +391,7 @@ namespace NvHud
             int fps = MarqueeFps;
             if (fps < 2) fps = 2;
             if (fps > 60) fps = 60;
-            if ((now - _marqueeLastStep).TotalMilliseconds < 1000.0 / fps) return false;
+            if ((now - _marqueeLastStep).TotalMilliseconds < 1000.0 / fps - 10) return false;   // 容差：定时器精度有限
             _marqueeLastStep = now;
 
             float step = MarqueeStep;
@@ -425,28 +424,9 @@ namespace NvHud
             }
         }
 
-        private int VolumeAt(Point p)
-        {
-            float scale = BaseScale;
-            float lx = p.X / scale;
-            float t = (lx - BarStartX) / BarWidth;
-            if (t < 0f) t = 0f;
-            if (t > 1f) t = 1f;
-            return (int)Math.Round(t * 100f);
-        }
 
         // 拖动区：左侧图标列（光标会变成四向箭头）；调音量：条子；右上角小叉：退出
         /// <summary>Volume drag area: only the bottom bar strip (with a little grab margin).</summary>
-        private bool IsOnBar(Point p)
-        {
-            float s = BaseScale;
-            float lx = p.X / s, ly = p.Y / s;
-            float h = Renderer.H_HOVER;
-            float bx = BarStartX;
-            float bw = BarWidth;
-            return ly >= h - 20f && ly <= h            // 只到底部这条（条子 y≈66，上下各留余量）
-                && lx >= bx - 8f && lx <= bx + bw + 8f;
-        }
 
         private bool IsOnIcon(Point p)
         {
@@ -550,12 +530,6 @@ namespace NvHud
                 return;
             }
 
-            if (_draggingLeft)
-            {
-                EmitVolume(VolumeAt(e.Location));
-                return;
-            }
-
             if (_hover && IsOnClose(e.Location)) Cursor = Cursors.Hand;
             else if (_hover && IsOnGear(e.Location)) Cursor = Cursors.Hand;
             else if (IsOnIcon(e.Location)) Cursor = Cursors.SizeAll;
@@ -568,12 +542,7 @@ namespace NvHud
             base.OnMouseUp(e);
             if (e.Button == MouseButtons.Left)
             {
-                if (_draggingLeft)
-                {
-                    _draggingLeft = false;
-                    Capture = false;
-                }
-                else if (_moving)
+                if (_moving)
                 {
                     bool wasDrag = _rightMoved;
                     if (!wasDrag && IsOnAvatar(e.Location) && AvatarNextRequested != null)

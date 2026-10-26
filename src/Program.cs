@@ -553,20 +553,26 @@ namespace NvHud
         }
 
         /// <summary>统一渲染调度：频谱 15fps、走马灯按自己的 fps，合并为每帧最多重绘一次。</summary>
+        /// <summary>统一渲染调度：频谱 15fps、走马灯按自己的 fps，合并为每帧最多重绘一次。</summary>
         private void OnAnimTick(object sender, EventArgs e)
         {
             try
             {
                 bool dirty = false;
 
-                if ((DateTime.Now - _lastSpecTick).TotalMilliseconds >= 1000.0 / SpecFps)
+                // 频谱：定时器是 66ms、这里的门限是 66.7ms，留 10ms 容差，避免每次都被判成"还没到"
+                if ((DateTime.Now - _lastSpecTick).TotalMilliseconds >= 1000.0 / SpecFps - 10)
                 {
                     _lastSpecTick = DateTime.Now;
                     if (_cfg.Spectrum > 0 && _cap != null && _cap.IsRunning && _cap.CopySamples(_specBuf))
+                    {
                         Spectrum.Analyze(_specBuf, CurrentSession() * 100f);
-                    else
-                        Spectrum.Decay();
-                    dirty = true;
+                        dirty = true;
+                    }
+                    else if (Spectrum.Decay())
+                    {
+                        dirty = true;   // 只有柱子还没收完才需要重绘
+                    }
                 }
 
                 if (_overlay.TickMarquee()) dirty = true;
