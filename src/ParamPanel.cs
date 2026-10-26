@@ -25,7 +25,6 @@ namespace NvHud
 
         public int Volume = 45;      // 基准音量（上限）
         public int LiveVolume = 45;   // 当前实际音量（滑条）
-        public int SpectrumPct = 28;  // 频谱浓度 %
         public float TargetDb = -20f;
         public int MeasureSec = 8;
         public int CacheTrustSec = 20;
@@ -40,7 +39,6 @@ namespace NvHud
 
         public event Action<int> VolumeStep;
         public event Action<int> LiveVolumeSet;   // 滑条直接设当前音量
-        public event Action<int> SpectrumStep;
         public event Action<int> TargetStep;
         public event Action<int> MeasureStep;
         public event Action<int> TrustStep;

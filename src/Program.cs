@@ -170,7 +170,6 @@ namespace NvHud
 
             // 频谱：只在有声音时重绘（约 30fps），停播时慢慢收回
             Renderer.SpectrumAlpha = _cfg.Spectrum / 100f;
-            Renderer.SpectrumStyle = _cfg.SpectrumStyle;
             _spec.Interval = 66;   // 15fps
             _spec.Tick += delegate
             {
@@ -530,7 +529,7 @@ namespace NvHud
             float loudDb = float.NaN;
             if (!offline && _gain != null && !float.IsNaN(_gain.LastMeasuredDb)) loudDb = _gain.LastMeasuredDb;
             _overlay.SetState(vol, muted, offline, _title, loudDb);
-            if (_panel != null) { _panel.LiveVolume = vol; _panel.SpectrumPct = _cfg.Spectrum; }
+            if (_panel != null) { _panel.LiveVolume = vol; }
         }
 
         /// <summary>自动增益只允许把音量压到"基准音量"以下，绝不抬高。</summary>
@@ -748,7 +747,6 @@ namespace NvHud
             }
             _panel.Volume = _cfg.DefaultVolume;
                 _panel.LiveVolume = _cfg.DefaultVolume;
-                _panel.SpectrumPct = _cfg.Spectrum;
             _panel.TargetDb = _cfg.TargetDb;
             _panel.MeasureSec = _cfg.MeasureSeconds;
             _panel.CacheTrustSec = _cfg.CacheTrustSec;
@@ -877,7 +875,6 @@ namespace NvHud
             {
                 _panel.Volume = _cfg.DefaultVolume;
                 _panel.LiveVolume = _cfg.DefaultVolume;
-                _panel.SpectrumPct = _cfg.Spectrum;
                 _panel.TargetDb = _cfg.TargetDb;
                 _panel.MeasureSec = _cfg.MeasureSeconds;
                 _panel.CacheTrustSec = _cfg.CacheTrustSec;
@@ -936,17 +933,6 @@ namespace NvHud
             Log.W("参数: 频谱浓度 = " + v + "%");
         }
 
-        private void SetSpectrumStyle(int v)
-        {
-            if (v < 0) v = 0;
-            if (v > 2) v = 2;
-            _cfg.SpectrumStyle = v;
-            _cfg.Save();
-            Renderer.SpectrumStyle = v;
-            if (_menu != null) { _menu.SpectrumStyle = v; _menu.Refresh_(); }
-            _overlay.Repaint();
-            Log.W("参数: 频谱样式 = " + (v == 0 ? "不对称" : (v == 1 ? "上下对称" : "左右对称")));
-        }
 
         private void OnMuteToggle()
         {
@@ -987,9 +973,7 @@ namespace NvHud
                 RefreshMenu();
             };
             _menu.ExitRequested += delegate { Log.W("退出: 右键菜单里选了退出"); Application.Exit(); };
-            _menu.SpectrumStyleCycle += delegate
             {
-                SetSpectrumStyle(_cfg.SpectrumStyle + 1);
                 RefreshMenu();
             };
             _menu.SpectrumStep += delegate(int d) { SetSpectrum(_cfg.Spectrum + d); RefreshMenu(); };

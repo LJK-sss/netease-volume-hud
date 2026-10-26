@@ -20,7 +20,7 @@ namespace NvHud
         public const float ROW_H = 30f;
         public const float PAD_Y = 7f;
         public const float SEP_H = 10f;
-        public const int ACTION_ROWS = 8;      // 0静音 1自动增益 2界面大小 3不透明度 4开机自启 5频谱样式 6频谱浓度 7退出
+        public const int ACTION_ROWS = 7;      // 0静音 1自动增益 2界面大小 3不透明度 4开机自启 5频谱浓度 6退出
 
         public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; } }
 
@@ -29,7 +29,7 @@ namespace NvHud
         public bool AutoStartOn;
         public float ScaleValue = 1f;
         public float OpacityValue = 0.88f;
-        public int SpectrumStyle;      // 0 不对称 / 1 上下对称 / 2 左右对称
+
         public int SpectrumPct = 28;
 
         public int HoverRow = -1;
@@ -40,7 +40,7 @@ namespace NvHud
         public event Action<int> ScaleStep;
         public event Action<int> OpacityStep;
         public event Action AutoStartToggle;
-        public event Action SpectrumStyleCycle;
+
         public event Action<int> SpectrumStep;
         public event Action ExitRequested;
 
@@ -187,8 +187,8 @@ namespace NvHud
         /// <summary>第 i 行（0..5）的逻辑 y；第 5 行在分隔线之后。</summary>
         private static float RowY(int i)
         {
-            if (i <= 6) return PAD_Y + i * ROW_H;
-            return PAD_Y + 7 * ROW_H + SEP_H;
+            if (i <= 5) return PAD_Y + i * ROW_H;
+            return PAD_Y + 6 * ROW_H + SEP_H;
         }
 
         private void Draw(Graphics g, float s)
@@ -254,11 +254,6 @@ namespace NvHud
                 }
                 else if (i == 5)
                 {
-                    DrawText(g, "频谱样式", y);
-                    DrawValue(g, w, y, SpectrumStyle == 0 ? "不对称" : (SpectrumStyle == 1 ? "上下对称" : "左右对称"));
-                }
-                else if (i == 6)
-                {
                     DrawText(g, "频谱浓度", y);
                     DrawValue(g, w, y, SpectrumPct + "%");
                     DrawChevron(g, w - 40, y + ROW_H / 2f, false, hover && HoverZone == 1);
@@ -272,7 +267,7 @@ namespace NvHud
             }
 
             // 分隔线
-            float sy = RowY(7) - SEP_H / 2f;
+            float sy = RowY(6) - SEP_H / 2f;
             using (var pen = new Pen(C(255, 255, 255, 26), 0.8f))
                 g.DrawLine(pen, 12, sy, w - 12, sy);
         }
@@ -334,7 +329,7 @@ namespace NvHud
             if (row < 0) return 0;
             float s = DpiScale;
             float lx = p.X / s;
-            if (row == 2 || row == 3 || row == 6)
+            if (row == 2 || row == 3 || row == 5)
             {
                 if (lx >= W_LOGICAL - 48 && lx < W_LOGICAL - 28) return 1;
                 if (lx >= W_LOGICAL - 28) return 2;
@@ -387,13 +382,10 @@ namespace NvHud
                     if (AutoStartToggle != null) AutoStartToggle();
                     break;
                 case 5:
-                    if (SpectrumStyleCycle != null) SpectrumStyleCycle();
-                    break;
-                case 6:
                     if (zone == 1 && SpectrumStep != null) SpectrumStep(-5);
                     else if (zone == 2 && SpectrumStep != null) SpectrumStep(5);
                     break;
-                case 7:
+                case 6:
                     if (ExitRequested != null) ExitRequested();
                     break;
             }
