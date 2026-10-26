@@ -24,9 +24,10 @@ namespace NvHud
         private float _marqueeMax;
         private bool _marqueeAtEnd;
         private DateTime _marqueeHoldUntil = DateTime.MinValue;
-        private DateTime _marqueeEpoch = DateTime.MinValue;   // 本段滚动的起点（时间基准，避免抖动累积）
-        private float _marqueeTravel = 1f;                   // 本段滚动总时长（秒）
-        private const int MarqueeIntervalMs = 333;   // 跑马灯刷新：3fps
+        // 跑马灯参数（右键菜单「走马灯参数」里可调）
+        public int MarqueeStep = 8;        // 每帧位移（逻辑像素）
+        public int MarqueeFps = 3;         // 刷新率
+        public int MarqueeHoldMs = 1000;   // 开头/结尾停顿
 
         private readonly Timer _leaveGuard;
 
@@ -79,7 +80,7 @@ namespace NvHud
             _leaveGuard.Interval = 120;
             _leaveGuard.Tick += new EventHandler(LeaveGuardTick);
 
-            _marquee.Interval = MarqueeIntervalMs;   // 位置按时间算，降低 fps 只影响平滑度
+            ApplyMarqueeRate();
             _marquee.Tick += MarqueeTick;
 
             Native.EnableDpiAware();
@@ -350,19 +351,25 @@ namespace NvHud
         private void StartMarquee()
         {
             StopMarquee();
-            if (string.IsNullOrEmpty(_title)) return;   // 常驻滚动：不再要求悬停
+            if (string.IsNullOrEmpty(_title)) return;
             float textW = Renderer.MeasureTitleWidth(_title);
             float avail = Renderer.TitleViewportW;
             _marqueeMax = textW - avail + 8f;      // 8px 尾巴余量
             if (_marqueeMax < 6f) return;          // 没溢出就不动
-            // 平滑：以 30px/s 为基准，smoothstep 缓入缓出让两端不生硬，
-            // 平均速度因此略低，所以总时长按 1.25 倍放宽
-            _marqueeTravel = Math.Max(0.8f, _marqueeMax / 30f * 1.25f);
             _marqueePos = 0f;
             _marqueeAtEnd = false;
-            _marqueeEpoch = DateTime.Now;
-            _marqueeHoldUntil = DateTime.Now.AddSeconds(1);   // 开头停 1 秒
+            _marqueeHoldUntil = DateTime.Now.AddMilliseconds(MarqueeHoldMs);   // 开头停顿
+            ApplyMarqueeRate();
             _marquee.Start();
+        }
+
+        /// <summary>把刷新率作用到定时器上（参数改了以后调用）。</summary>
+        public void ApplyMarqueeRate()
+        {
+            int fps = MarqueeFps;
+            if (fps < 2) fps = 2;
+            if (fps > 60) fps = 60;
+            _marquee.Interval = Math.Max(15, 1000 / fps);
         }
 
         private void StopMarquee()
@@ -373,44 +380,33 @@ namespace NvHud
             if (_marqueePos != 0f) { _marqueePos = 0f; Render(); }
         }
 
-        /// <summary>60fps + 时间基准 + smoothstep 缓入缓出（平均约 24px/s，中段约 36px/s）。</summary>
+        /// <summary>每帧前进 MarqueeStep 个逻辑像素；到头停 MarqueeHoldMs，回到开头再停一次。</summary>
         private void MarqueeTick(object sender, EventArgs e)
         {
             if (string.IsNullOrEmpty(_title)) { StopMarquee(); return; }
-            if (DateTime.Now < _marqueeHoldUntil)
-            {
-                // 停顿结束时把时间基准对齐，避免停顿被算进滚动时间
-                _marqueeEpoch = DateTime.Now;
-                return;
-            }
+            if (DateTime.Now < _marqueeHoldUntil) return;
 
             if (_marqueeAtEnd)
             {
-                // 尾部停满 1 秒 → 回到开头，重新计时
                 _marqueePos = 0f;
                 _marqueeAtEnd = false;
-                _marqueeEpoch = DateTime.Now;
-                _marqueeHoldUntil = DateTime.Now.AddSeconds(1);
+                _marqueeHoldUntil = DateTime.Now.AddMilliseconds(MarqueeHoldMs);
                 Render();
                 return;
             }
 
-            // 按"已经过去多少时间"算位置：定时器抖动不会累积成忽快忽慢
-            float t = (float)((DateTime.Now - _marqueeEpoch).TotalSeconds / _marqueeTravel);
-            if (t >= 1f)
+            float step = MarqueeStep;
+            if (step < 1f) step = 1f;
+            _marqueePos += step;
+            if (_marqueePos >= _marqueeMax)
             {
                 _marqueePos = _marqueeMax;
                 _marqueeAtEnd = true;
-                _marqueeHoldUntil = DateTime.Now.AddSeconds(1);   // 尾部停 1 秒
-                Render();
-                return;
+                _marqueeHoldUntil = DateTime.Now.AddMilliseconds(MarqueeHoldMs);
             }
-
-            // smoothstep：起步和收尾各有一段缓动，中段接近匀速
-            float u = t * t * (3f - 2f * t);
-            _marqueePos = u * _marqueeMax;
             Render();
         }
+
         private float BarStartX
         {
             get

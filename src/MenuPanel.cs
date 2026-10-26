@@ -20,9 +20,20 @@ namespace NvHud
         public const float ROW_H = 30f;
         public const float PAD_Y = 7f;
         public const float SEP_H = 10f;
-        public const int ACTION_ROWS = 7;      // 0静音 1自动增益 2界面大小 3不透明度 4开机自启 5频谱浓度 6退出
+        public const int BASE_ROWS = 7;      // 0静音 1自动增益 2界面大小 3不透明度 4开机自启 5频谱浓度 6走马灯参数
 
-        public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; } }
+        public bool MarqueeExpanded;                        // 「走马灯参数」是否展开
+public int MarqueeStep = 8;                         // 每帧位移（px）
+public int MarqueeFps = 3;                          // 刷新率
+public int MarqueeHoldMs = 1000;                    // 停顿（ms）
+
+private int ExitRow { get { return MarqueeExpanded ? 10 : 7; } }
+public int TotalRows { get { return ExitRow + 1; } }
+public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ExitRow + SEP_H + ROW_H; } }
+
+/// <summary>预设档位，用箭头循环切换。</summary>
+private static readonly int[] FpsPresets = new int[] { 2, 3, 5, 8, 10, 15, 20, 30, 60 };
+private static readonly int[] HoldPresets = new int[] { 0, 300, 600, 1000, 1500, 2000 };
 
         public bool Muted;
         public bool AutoGainOn = true;
@@ -42,6 +53,10 @@ namespace NvHud
         public event Action AutoStartToggle;
 
         public event Action<int> SpectrumStep;
+        public event Action MarqueeExpandToggle;
+        public event Action<int> MarqueeStepDelta;
+        public event Action<int> MarqueeFpsCycle;
+        public event Action<int> MarqueeHoldCycle;
         public event Action ExitRequested;
 
         private Font _fLabel, _fValue;
@@ -117,6 +132,25 @@ namespace NvHud
             _raise.Start();
         }
 
+        /// <summary>展开/收起「走马灯参数」后重新定尺寸（保持顶边，必要时上移）。</summary>
+        public void Relayout()
+        {
+            if (!Visible || Handle == IntPtr.Zero) return;
+            float s = DpiScale;
+            int w = (int)Math.Round(W_LOGICAL * s);
+            int h = (int)Math.Round(H_LOGICAL * s);
+            Screen scr = Screen.FromPoint(new Point(_wx + w / 2, _wy + 20));
+            Rectangle wa = scr.WorkingArea;
+            int x = _wx, y = _wy;
+            if (y + h > wa.Bottom) y = wa.Bottom - h;
+            if (y < wa.Top) y = wa.Top;
+            if (x + w > wa.Right) x = wa.Right - w;
+            if (x < wa.Left) x = wa.Left;
+            _wx = x; _wy = y;
+            SetBounds(x, y, w, h, BoundsSpecified.All);
+            Render();
+        }
+
         public void HideMe()
         {
             _leaveGuard.Stop();
@@ -185,10 +219,10 @@ namespace NvHud
         }
 
         /// <summary>第 i 行（0..5）的逻辑 y；第 5 行在分隔线之后。</summary>
-        private static float RowY(int i)
+        private float RowY(int i)
         {
-            if (i <= 5) return PAD_Y + i * ROW_H;
-            return PAD_Y + 6 * ROW_H + SEP_H;
+            if (i < ExitRow) return PAD_Y + i * ROW_H;
+            return PAD_Y + ExitRow * ROW_H + SEP_H;
         }
 
         private void Draw(Graphics g, float s)
@@ -212,7 +246,7 @@ namespace NvHud
 
             EnsureFonts();
 
-            for (int i = 0; i < ACTION_ROWS; i++)
+            for (int i = 0; i < TotalRows; i++)
             {
                 float y = RowY(i);
                 bool hover = (HoverRow == i);
@@ -259,6 +293,31 @@ namespace NvHud
                     DrawChevron(g, w - 40, y + ROW_H / 2f, false, hover && HoverZone == 1);
                     DrawChevron(g, w - 18, y + ROW_H / 2f, true, hover && HoverZone == 2);
                 }
+                else if (i == 6)
+                {
+                    DrawText(g, "走马灯参数  " + (MarqueeExpanded ? "▾" : "▸"), y);
+                }
+                else if (i == 7 && MarqueeExpanded)
+                {
+                    DrawSubText(g, "步长", y);
+                    DrawValue(g, w, y, MarqueeStep + " px");
+                    DrawChevron(g, w - 40, y + ROW_H / 2f, false, hover && HoverZone == 1);
+                    DrawChevron(g, w - 18, y + ROW_H / 2f, true, hover && HoverZone == 2);
+                }
+                else if (i == 8 && MarqueeExpanded)
+                {
+                    DrawSubText(g, "刷新率", y);
+                    DrawValue(g, w, y, MarqueeFps + " fps");
+                    DrawChevron(g, w - 40, y + ROW_H / 2f, false, hover && HoverZone == 1);
+                    DrawChevron(g, w - 18, y + ROW_H / 2f, true, hover && HoverZone == 2);
+                }
+                else if (i == 9 && MarqueeExpanded)
+                {
+                    DrawSubText(g, "停顿", y);
+                    DrawValue(g, w, y, (MarqueeHoldMs / 1000.0).ToString("0.0") + " 秒");
+                    DrawChevron(g, w - 40, y + ROW_H / 2f, false, hover && HoverZone == 1);
+                    DrawChevron(g, w - 18, y + ROW_H / 2f, true, hover && HoverZone == 2);
+                }
                 else
                 {
                     using (var b = new SolidBrush(hover ? C(255, 120, 130, 255) : C(226, 120, 128, 235)))
@@ -267,9 +326,15 @@ namespace NvHud
             }
 
             // 分隔线
-            float sy = RowY(6) - SEP_H / 2f;
+            float sy = RowY(ExitRow) - SEP_H / 2f;
             using (var pen = new Pen(C(255, 255, 255, 26), 0.8f))
                 g.DrawLine(pen, 12, sy, w - 12, sy);
+        }
+
+        private void DrawSubText(Graphics g, string text, float y)
+        {
+            using (var b = new SolidBrush(C(200, 202, 214, 255)))
+                g.DrawString(text, _fLabel, b, new RectangleF(30, y + 2, W_LOGICAL - 44, ROW_H - 4), _sfL);
         }
 
         private void DrawText(Graphics g, string text, float y)
@@ -316,7 +381,7 @@ namespace NvHud
         {
             float s = DpiScale;
             float ly = p.Y / s;
-            for (int i = 0; i < ACTION_ROWS; i++)
+            for (int i = 0; i < TotalRows; i++)
             {
                 float top = RowY(i);
                 if (ly >= top && ly < top + ROW_H) return i;
@@ -329,7 +394,7 @@ namespace NvHud
             if (row < 0) return 0;
             float s = DpiScale;
             float lx = p.X / s;
-            if (row == 2 || row == 3 || row == 5)
+            if (row == 2 || row == 3 || row == 5 || ((row >= 7) && (row <= 9) && MarqueeExpanded))
             {
                 if (lx >= W_LOGICAL - 48 && lx < W_LOGICAL - 28) return 1;
                 if (lx >= W_LOGICAL - 28) return 2;
@@ -362,6 +427,12 @@ namespace NvHud
             if (row < 0) return;
             int zone = ZoneAt(e.Location, row);
 
+            if (row == ExitRow)
+            {
+                if (ExitRequested != null) ExitRequested();
+                return;
+            }
+
             switch (row)
             {
                 case 0:
@@ -378,15 +449,31 @@ namespace NvHud
                     if (zone == 1 && OpacityStep != null) OpacityStep(-1);
                     else if (zone == 2 && OpacityStep != null) OpacityStep(1);
                     break;
+                case 6:
+                    {
+                        MarqueeExpanded = !MarqueeExpanded;
+                        if (MarqueeExpandToggle != null) MarqueeExpandToggle();
+                        Relayout();
+                    }
+                    break;
+                case 7:
+                    if (zone == 1 && MarqueeStepDelta != null) MarqueeStepDelta(-1);
+                    else if (zone == 2 && MarqueeStepDelta != null) MarqueeStepDelta(1);
+                    break;
+                case 8:
+                    if (zone == 1 && MarqueeFpsCycle != null) MarqueeFpsCycle(-1);
+                    else if (zone == 2 && MarqueeFpsCycle != null) MarqueeFpsCycle(1);
+                    break;
+                case 9:
+                    if (zone == 1 && MarqueeHoldCycle != null) MarqueeHoldCycle(-1);
+                    else if (zone == 2 && MarqueeHoldCycle != null) MarqueeHoldCycle(1);
+                    break;
                 case 4:
                     if (AutoStartToggle != null) AutoStartToggle();
                     break;
                 case 5:
                     if (zone == 1 && SpectrumStep != null) SpectrumStep(-5);
                     else if (zone == 2 && SpectrumStep != null) SpectrumStep(5);
-                    break;
-                case 6:
-                    if (ExitRequested != null) ExitRequested();
                     break;
             }
             Render();

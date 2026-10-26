@@ -170,6 +170,10 @@ namespace NvHud
 
             // 频谱：只在有声音时重绘（约 30fps），停播时慢慢收回
             Renderer.SpectrumAlpha = _cfg.Spectrum / 100f;
+            _overlay.MarqueeStep = _cfg.MarqueeStep;
+            _overlay.MarqueeFps = _cfg.MarqueeFps;
+            _overlay.MarqueeHoldMs = _cfg.MarqueeHoldMs;
+            _overlay.ApplyMarqueeRate();
             _spec.Interval = 66;   // 15fps
             _spec.Tick += delegate
             {
@@ -933,6 +937,51 @@ namespace NvHud
             Log.W("参数: 频谱浓度 = " + v + "%");
         }
 
+        private static readonly int[] FpsPresets = new int[] { 2, 3, 5, 8, 10, 15, 20, 30, 60 };
+        private static readonly int[] HoldPresets = new int[] { 0, 300, 600, 1000, 1500, 2000 };
+
+        private void SetMarqueeStep(int v)
+        {
+            if (v < 1) v = 1;
+            if (v > 16) v = 16;
+            _cfg.MarqueeStep = v;
+            _cfg.Save();
+            _overlay.MarqueeStep = v;
+            if (_menu != null) { _menu.MarqueeStep = v; _menu.Refresh_(); }
+            Log.W("参数: 走马灯步长 = " + v + " px");
+        }
+
+        private void CycleMarqueeFps(int dir)
+        {
+            int idx = Array.IndexOf(FpsPresets, _cfg.MarqueeFps);
+            if (idx < 0) idx = 1;
+            idx += dir > 0 ? 1 : -1;
+            if (idx < 0) idx = 0;
+            if (idx >= FpsPresets.Length) idx = FpsPresets.Length - 1;
+            int v = FpsPresets[idx];
+            _cfg.MarqueeFps = v;
+            _cfg.Save();
+            _overlay.MarqueeFps = v;
+            _overlay.ApplyMarqueeRate();
+            if (_menu != null) { _menu.MarqueeFps = v; _menu.Refresh_(); }
+            Log.W("参数: 走马灯刷新率 = " + v + " fps");
+        }
+
+        private void CycleMarqueeHold(int dir)
+        {
+            int idx = Array.IndexOf(HoldPresets, _cfg.MarqueeHoldMs);
+            if (idx < 0) idx = 3;
+            idx += dir > 0 ? 1 : -1;
+            if (idx < 0) idx = 0;
+            if (idx >= HoldPresets.Length) idx = HoldPresets.Length - 1;
+            int v = HoldPresets[idx];
+            _cfg.MarqueeHoldMs = v;
+            _cfg.Save();
+            _overlay.MarqueeHoldMs = v;
+            if (_menu != null) { _menu.MarqueeHoldMs = v; _menu.Refresh_(); }
+            Log.W("参数: 走马灯停顿 = " + v + " ms");
+        }
+
 
         private void OnMuteToggle()
         {
@@ -977,6 +1026,9 @@ namespace NvHud
                 RefreshMenu();
             };
             _menu.SpectrumStep += delegate(int d) { SetSpectrum(_cfg.Spectrum + d); RefreshMenu(); };
+            _menu.MarqueeStepDelta += delegate(int d) { SetMarqueeStep(_cfg.MarqueeStep + d); };
+            _menu.MarqueeFpsCycle += delegate(int d) { CycleMarqueeFps(d); };
+            _menu.MarqueeHoldCycle += delegate(int d) { CycleMarqueeHold(d); };
         }
 
         private void SyncMenuState()
