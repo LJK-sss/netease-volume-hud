@@ -108,6 +108,12 @@ namespace NvHud
         [DllImport("ole32.dll")] private static extern void CoUninitialize();
 
         private readonly ConcurrentQueue<float> _queue = new ConcurrentQueue<float>();
+
+        // ---- 原始样本环形缓冲（给频谱用）----
+        private const int RingSize = 4096;                 // 44100Hz 下约 93ms
+        private readonly float[] _ring = new float[RingSize];
+        private int _ringPos;
+        private int _ringFilled;
         private volatile bool _running;
         private int _gen;            // 代际：Stop 之后旧线程的写入会被丢弃
         private Thread _thread;
@@ -120,6 +126,16 @@ namespace NvHud
         public bool TryDequeue(out float db)
         {
             return _queue.TryDequeue(out db);
+        }
+
+        /// <summary>把最近 n 个单声道样本拷到 dst（不足则返回 false）。</summary>
+        public bool CopySamples(float[] dst)
+        {
+            int n = dst.Length;
+            if (n <= 0 || n > RingSize || _ringFilled < n) return false;
+            int start = (_ringPos - n + RingSize) & (RingSize - 1);
+            for (int i = 0; i < n; i++) dst[i] = _ring[(start + i) & (RingSize - 1)];
+            return true;
         }
 
         public void Start(uint pid)
@@ -254,6 +270,16 @@ namespace NvHud
                                 sumSq += v * v;
                             }
                             samples += n;
+
+                            // 立体声交织 → 单声道，写进环形缓冲（频谱分析用）
+                            for (int i = 0; i + 1 < n; i += 2)
+                            {
+                                short l16 = Marshal.ReadInt16(data, i * 2);
+                                short r16 = Marshal.ReadInt16(data, (i + 1) * 2);
+                                _ring[_ringPos] = (l16 + r16) * 0.5f / 32768f;
+                                _ringPos = (_ringPos + 1) & (RingSize - 1);
+                                if (_ringFilled < RingSize) _ringFilled++;
+                            }
                         }
                         else
                         {

@@ -50,6 +50,8 @@ namespace NvHud
         private readonly Timer _hb = new Timer();      // 2 分钟一次心跳（内存/句柄趋势，排查静默退出）
         private readonly Timer _portrait = new Timer();   // 头像轮换（30 秒）
         private readonly Timer _portraitFade = new Timer();   // 轮换时的淡入淡出
+        private readonly Timer _spec = new Timer();       // 频谱分析（约 30fps）
+        private readonly float[] _specBuf = new float[Spectrum.FftSize];
 
         private string _title = "";
 
@@ -165,6 +167,29 @@ namespace NvHud
                 _overlay.Repaint();
             };
             _portrait.Start();
+
+            // 频谱：只在有声音时重绘（约 30fps），停播时慢慢收回
+            Renderer.SpectrumAlpha = _cfg.Spectrum / 100f;
+            _spec.Interval = 50;   // 20fps：柱子够顺，CPU 更省
+            _spec.Tick += delegate
+            {
+                try
+                {
+                    if (_cfg.Spectrum <= 0) return;
+                    if (_cap != null && _cap.IsRunning && _cap.CopySamples(_specBuf))
+                    {
+                        Spectrum.Analyze(_specBuf, CurrentSession() * 100f);
+                        _overlay.Repaint();
+                    }
+                    else
+                    {
+                        Spectrum.Decay();
+                        _overlay.Repaint();
+                    }
+                }
+                catch { }
+            };
+            _spec.Start();
 
             // 15 秒重申一次置顶：比原来 2 秒宽松，微信截图时不会频繁跳出来挡住画面
             _topmost.Interval = 15000;
@@ -504,6 +529,7 @@ namespace NvHud
             float loudDb = float.NaN;
             if (!offline && _gain != null && !float.IsNaN(_gain.LastMeasuredDb)) loudDb = _gain.LastMeasuredDb;
             _overlay.SetState(vol, muted, offline, _title, loudDb);
+            if (_panel != null) { _panel.LiveVolume = vol; _panel.SpectrumPct = _cfg.Spectrum; }
         }
 
         /// <summary>自动增益只允许把音量压到"基准音量"以下，绝不抬高。</summary>
@@ -513,9 +539,9 @@ namespace NvHud
             if (baseS < 0.05f) baseS = 0.05f;
             return s > baseS ? baseS : s;
         }
+        private void FlushCapture()
 
         /// <summary>丢弃抓流队列里的残留样本（切歌/重绑时调用）。</summary>
-        private void FlushCapture()
         {
             if (_cap == null) return;
             float junk;
@@ -712,6 +738,8 @@ namespace NvHud
                 _panel.VolumeStep += delegate(int d) { SetBaseVolume(_cfg.DefaultVolume + d); };
                 _panel.TargetStep += delegate(int d) { SetTargetDb(_cfg.TargetDb + d); };
                 _panel.MeasureStep += delegate(int d) { SetMeasure(_cfg.MeasureSeconds + d); };
+            _panel.LiveVolumeSet += delegate(int v) { OnPanelVolume(v); };
+            _panel.SpectrumStep += delegate(int d) { SetSpectrum(_cfg.Spectrum + d); };
             _panel.TrustStep += delegate(int d) { SetCacheTrust(_cfg.CacheTrustSec + d); };
                 _panel.MarginStep += delegate(int d) { SetLimitMargin(_cfg.LimitMarginDb + d); };
                 _panel.ToleranceStep += delegate(int d) { SetTolerance(_cfg.ToleranceDb + d * 0.5f); };
@@ -719,6 +747,8 @@ namespace NvHud
                 _panel.ResetDefaults += delegate { ResetParams(); };
             }
             _panel.Volume = _cfg.DefaultVolume;
+                _panel.LiveVolume = _cfg.DefaultVolume;
+                _panel.SpectrumPct = _cfg.Spectrum;
             _panel.TargetDb = _cfg.TargetDb;
             _panel.MeasureSec = _cfg.MeasureSeconds;
             _panel.CacheTrustSec = _cfg.CacheTrustSec;
@@ -846,6 +876,8 @@ namespace NvHud
             if (_panel != null)
             {
                 _panel.Volume = _cfg.DefaultVolume;
+                _panel.LiveVolume = _cfg.DefaultVolume;
+                _panel.SpectrumPct = _cfg.Spectrum;
                 _panel.TargetDb = _cfg.TargetDb;
                 _panel.MeasureSec = _cfg.MeasureSeconds;
                 _panel.CacheTrustSec = _cfg.CacheTrustSec;
@@ -872,6 +904,36 @@ namespace NvHud
                 if (_gain != null) _gain.UpdateDisplayForSession(v / 100f);
             }
             UpdateUi(false);
+        }
+
+        /// <summary>面板里的音量滑条：直接设当前音量；拖超过基准就把基准一起抬上去。</summary>
+        private void OnPanelVolume(int v)
+        {
+            if (v < 0) v = 0;
+            if (v > 100) v = 100;
+            if (v > _cfg.DefaultVolume)
+            {
+                int nb = v;
+                if (nb < 25) nb = 25;
+                if (nb > 70) nb = 70;
+                _cfg.DefaultVolume = nb;
+                _cfg.Save();
+                if (_panel != null) { _panel.Volume = nb; _panel.Refresh_(); }
+            }
+            OnVolumeChanged(v);
+            Log.W("参数: 音量 = " + v + "%" + (v >= _cfg.DefaultVolume ? "（同时抬高基准）" : ""));
+        }
+
+        private void SetSpectrum(int v)
+        {
+            if (v < 0) v = 0;
+            if (v > 50) v = 50;
+            _cfg.Spectrum = v;
+            _cfg.Save();
+            Renderer.SpectrumAlpha = v / 100f;
+            if (_panel != null) { _panel.SpectrumPct = v; _panel.Refresh_(); }
+            _overlay.Repaint();
+            Log.W("参数: 频谱浓度 = " + v + "%");
         }
 
         private void OnMuteToggle()

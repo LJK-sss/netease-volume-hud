@@ -19,11 +19,13 @@ namespace NvHud
         public const float W_LOGICAL = 216f;
         public const float ROW_H = 30f;
         public const float PAD_Y = 7f;
-        public const int ROWS = 8;
+        public const int ROWS = 10;
 
         public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ROWS; } }
 
-        public int Volume = 45;
+        public int Volume = 45;      // 基准音量（上限）
+        public int LiveVolume = 45;   // 当前实际音量（滑条）
+        public int SpectrumPct = 28;  // 频谱浓度 %
         public float TargetDb = -20f;
         public int MeasureSec = 8;
         public int CacheTrustSec = 20;
@@ -32,10 +34,13 @@ namespace NvHud
         public float Tolerance = 1.5f;
         public bool AutoGainOn = true;
 
+        private bool _dragVolume;
         public int HoverRow = -1;
         public int HoverZone;   // 0 无, 1 左箭头, 2 右箭头, 3 整行
 
         public event Action<int> VolumeStep;
+        public event Action<int> LiveVolumeSet;   // 滑条直接设当前音量
+        public event Action<int> SpectrumStep;
         public event Action<int> TargetStep;
         public event Action<int> MeasureStep;
         public event Action<int> TrustStep;
@@ -155,6 +160,12 @@ namespace NvHud
             _sfC.LineAlignment = StringAlignment.Center;
         }
 
+        private static System.Drawing.Drawing2D.LinearGradientBrush Grad(float x0, float y0, float x1, float y1, Color c0, Color c1)
+        {
+            return new System.Drawing.Drawing2D.LinearGradientBrush(
+                new PointF(x0, y0), new PointF(x1, y1), c0, c1);
+        }
+
         private static Color C(int r, int gg, int b, int a) { return Color.FromArgb(a, r, gg, b); }
 
         private static GraphicsPath Round(float x, float y, float w, float h, float r)
@@ -220,7 +231,9 @@ namespace NvHud
                         case 4: label = "缓存信任"; value = CacheTrustSec + " 秒"; break;
 
                         case 5: label = "限幅余量"; value = LimitMargin.ToString("0.0") + " dB"; break;
-                        case 6: label = "自动增益"; value = AutoGainOn ? "开" : "关"; arrows = false; break;
+                        case 6: label = "音量"; value = LiveVolume + "%"; arrows = false; break;
+                        case 7: label = "频谱浓度"; value = SpectrumPct + "%"; break;
+                        case 8: label = "自动增益"; value = AutoGainOn ? "开" : "关"; arrows = false; break;
                         default: label = "恢复默认"; arrows = false; break;
                     }
 
@@ -243,16 +256,41 @@ namespace NvHud
                     using (var b = new SolidBrush(C(232, 234, 242, 255)))   // 与右键菜单同亮度
                         g.DrawString(label, _fLabel, b, new RectangleF(14, y + 2, 90, ROW_H - 4), sfL);
 
-                    Color vc = (i == 5 && !AutoGainOn) ? C(140, 142, 156, 255) : C(246, 246, 250, 255);
+                    Color vc = (i == 8 && !AutoGainOn) ? C(140, 142, 156, 255) : C(246, 246, 250, 255);
+                    RectangleF vr = (i == 6) ? new RectangleF(w - 74, y + 2, 60, ROW_H - 4)
+                                            : new RectangleF(w - 132, y + 2, 76, ROW_H - 4);
                     using (var b = new SolidBrush(vc))
-                        g.DrawString(value, _fValue, b, new RectangleF(w - 132, y + 2, 76, ROW_H - 4), sfR);
+                        g.DrawString(value, _fValue, b, vr, sfR);
+                    if (i == 6)
+                    {
+                        // 音量滑条：轨道 + 已填充 + 圆点
+                        float tx = 80f, tw = w - tx - 82f, th = 3.4f;
+                        float ty = y + ROW_H / 2f - th / 2f;
+                        using (var tp = Round(tx, ty, tw, th, th / 2f))
+                        using (var tb = new SolidBrush(C(255, 255, 255, 30)))
+                            g.FillPath(tb, tp);
+                        float fw2 = tw * (Math.Max(0, Math.Min(100, LiveVolume)) / 100f);
+                        if (fw2 > 0.5f)
+                        {
+                            if (fw2 < th) fw2 = th;
+                            using (var fp = Round(tx, ty, fw2, th, th / 2f))
+                            using (var fb = Grad(tx, ty, tx + tw, ty, C(255, 70, 105, 255), C(255, 152, 100, 255)))
+                                g.FillPath(fb, fp);
+                            using (var kp = new GraphicsPath())
+                            {
+                                kp.AddEllipse(tx + fw2 - 4.2f, ty + th / 2f - 4.2f, 8.4f, 8.4f);
+                                using (var kb = new SolidBrush(C(255, 255, 255, 240))) g.FillPath(kb, kp);
+                            }
+                        }
+                        continue;
+                    }
 
                     if (arrows)
                     {
                         DrawChevron(g, w - 40, y + ROW_H / 2f, false, HoverRow == i && HoverZone == 1);
                         DrawChevron(g, w - 18, y + ROW_H / 2f, true, HoverRow == i && HoverZone == 2);
                     }
-                    else if (i == 6)
+                    else if (i == 8)
                     {
                         // 开关小胶囊
                         float pw2 = 34f, ph2 = 17f;
@@ -300,7 +338,8 @@ namespace NvHud
         {
             float s = DpiScale;
             float lx = p.X / s;
-            if (row == 6) return 3;
+            if (row == 6) return 3;   // 音量滑条：整行都可拖
+            if (row == ROWS - 1) return 3;
             if (row == ROWS - 1) return 3;
             if (lx >= W_LOGICAL - 56f && lx < W_LOGICAL - 33f) return 1;
             if (lx >= W_LOGICAL - 33f && lx <= W_LOGICAL - 8f) return 2;
@@ -320,6 +359,7 @@ namespace NvHud
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
+            if (_dragVolume) { ApplyVolumeAt(e.Location); return; }
             int r = RowAt(e.Location);
             int z = r >= 0 ? ZoneAt(e.Location, r) : 0;
             if (r != HoverRow || z != HoverZone)
@@ -373,13 +413,50 @@ namespace NvHud
                     else if (zone == 2 && MarginStep != null) MarginStep(1);
                     break;
                 case 6:
-                    if (ToggleAutoGain != null) ToggleAutoGain();
+                    // 音量滑条：按下即定位，拖动连续调整
+                    _dragVolume = true;
+                    Capture = true;
+                    ApplyVolumeAt(e.Location);
                     break;
                 case 7:
+                    if (zone == 1 && SpectrumStep != null) SpectrumStep(-5);
+                    else if (zone == 2 && SpectrumStep != null) SpectrumStep(5);
+                    break;
+                case 8:
+                    if (ToggleAutoGain != null) ToggleAutoGain();
+                    break;
+                case 9:
                     if (ResetDefaults != null) ResetDefaults();
                     break;
             }
             Render();
+        }
+
+
+        /// <summary>按住音量行时按 x 位置设置音量。</summary>
+        private void ApplyVolumeAt(Point p)
+        {
+            float s = DpiScale;
+            float lx = p.X / s;
+            float tx = 80f, tw = W_LOGICAL - tx - 82f;
+            float t = (lx - tx) / tw;
+            if (t < 0f) t = 0f;
+            if (t > 1f) t = 1f;
+            int v = (int)Math.Round(t * 100f);
+            if (v == LiveVolume) return;
+            LiveVolume = v;
+            if (LiveVolumeSet != null) LiveVolumeSet(v);
+            Render();
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+            if (_dragVolume)
+            {
+                _dragVolume = false;
+                Capture = false;
+            }
         }
 
         protected override void Dispose(bool disposing)
@@ -390,12 +467,12 @@ namespace NvHud
                 if (_fLabel != null) { _fLabel.Dispose(); _fLabel = null; }
                 if (_fValue != null) { _fValue.Dispose(); _fValue = null; }
                 if (_fBtn != null) { _fBtn.Dispose(); _fBtn = null; }
+                _raise.Stop();
+                _raise.Dispose();
             }
             base.Dispose(disposing);
         }
 
         #endregion
     }
-
-
 }

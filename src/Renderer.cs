@@ -19,6 +19,7 @@ namespace NvHud
         public float TitleOffset = 0f;   // 长标题滚动偏移（逻辑像素）
         public bool TitleScrolls = false;   // 标题在滚动（溢出）：此时不画省略号
         public bool ShowControls = false;   // 悬停时显示菜单/关闭按钮
+        public float[] Spectrum;   // 44 个 0~1 的柱子高度（null = 不画）
     }
 
     internal static class Renderer
@@ -36,6 +37,9 @@ namespace NvHud
 
         /// <summary>内置头像（exe 资源），artwork 文件夹为空时使用。</summary>
         public static Bitmap EmbeddedAvatar { get { EnsureArt(); return _avatar; } }
+
+        /// <summary>频谱柱子浓度 0~1（参数面板可调）。</summary>
+        public static float SpectrumAlpha = 0.28f;
 
         private static void EnsureArt()
         {
@@ -117,6 +121,51 @@ namespace NvHud
         }
 
         /// <summary>按 alpha 画一张图（用于头像淡入淡出）。</summary>
+        /// <summary>
+        /// 频谱柱子：头像右侧、标题下方这一块（逻辑 x 56~187，底边 y = 71）。
+        /// 白灰竖向渐变，画在头像/数字/文字下面。
+        /// </summary>
+        private static void DrawSpectrum(Graphics g, float[] bars, float h)
+        {
+            const float X0 = 56f;
+            const float X1 = 187f;
+            const float TOP = 30f;      // 柱子的最高点（标题下方）
+            float bottom = h - 5f;      // 底线：卡片底往上 5
+            float w = X1 - X0;
+            float maxH = bottom - TOP;
+            if (maxH <= 2f) return;
+
+            int n = bars.Length;
+            if (n <= 0) return;
+            float pitch = w / n;
+            float bw = Math.Max(1.2f, pitch - 1.1f);
+
+            int a = (int)(255 * Math.Max(0f, Math.Min(1f, SpectrumAlpha)));
+            var st0 = g.Save();
+            g.SetClip(Round(0, 0, W_HOVER, h, 15f), CombineMode.Intersect);
+            g.SmoothingMode = SmoothingMode.None;
+
+            using (var br = new LinearGradientBrush(
+                new PointF(X0, TOP), new PointF(X0, bottom),
+                Color.FromArgb(a, 250, 250, 255), Color.FromArgb(a, 150, 150, 164)))
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    float v = bars[i];
+                    if (v < 0.02f) continue;
+                    float bh = Math.Max(1.5f, v * maxH);
+                    float x = X0 + i * pitch;
+                    g.FillRectangle(br, x, bottom - bh, bw, bh);
+                }
+            }
+
+            // 1px 底线
+            using (var bb = new SolidBrush(Color.FromArgb(Math.Min(255, a + 40), 240, 240, 248)))
+                g.FillRectangle(bb, X0, bottom - 0.5f, w, 0.8f);
+
+            g.Restore(st0);
+        }
+
         private static void DrawWithAlpha(Graphics g, Image img, RectangleF dst, float alpha)
         {
             if (img == null || alpha <= 0.01f) return;
@@ -162,6 +211,12 @@ namespace NvHud
                 // 内描边
                 using (var pen = new Pen(C(255, 255, 255, 26), 0.8f))
                     g.DrawPath(pen, cp);
+            }
+
+            // ---- 频谱背景（画在内容下面）----
+            if (st.Spectrum != null && SpectrumAlpha > 0.01f && !off)
+            {
+                DrawSpectrum(g, st.Spectrum, h);
             }
 
             float numCy, iconD, numPt;
@@ -315,42 +370,6 @@ namespace NvHud
                 }
             }
 
-            // 进度条
-            float bx = cx;
-            float bw = w - bx - 11f;
-            float bh = 3.6f;
-            float by = h - 10f;
-
-            using (var tp = Round(bx, by, bw, bh, bh / 2f))
-            using (var tb = new SolidBrush(C(255, 255, 255, 26)))
-                g.FillPath(tb, tp);
-
-            float fw = bw * (st.Volume / 100f);
-            if (fw > 0.5f && !off)
-            {
-                if (fw < bh) fw = bh;
-                using (var fp = Round(bx, by, fw, bh, bh / 2f))
-                {
-                    if (mute)
-                    {
-                        using (var b = new SolidBrush(C(122, 46, 46, 255))) g.FillPath(b, fp);
-                    }
-                    else
-                    {
-                        using (var b = Grad(bx, by, bx + bw, by, C(255, 70, 105, 255), C(255, 152, 100, 255)))
-                            g.FillPath(b, fp);
-                    }
-                }
-                if (!mute)
-                {
-                    float kr = 4.2f;
-                    using (var kp = new GraphicsPath())
-                    {
-                        kp.AddEllipse(bx + fw - kr, by + bh / 2f - kr, kr * 2f, kr * 2f);
-                        using (var kb = new SolidBrush(C(255, 255, 255, 242))) g.FillPath(kb, kp);
-                    }
-                }
-            }
             // 参数按钮（三条滑杆），只在悬停时出现，位于 × 左侧
             if (st.ShowControls)   // 离线时也要能开菜单 / 退出，否则窗口关不掉
             {

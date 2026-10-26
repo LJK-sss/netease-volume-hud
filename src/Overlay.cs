@@ -208,6 +208,7 @@ namespace NvHud
             st.TitleOffset = _marqueePos;
             st.ShowControls = _hover;             // 只有悬停时才画菜单/关闭按钮
             st.TitleScrolls = _marqueeMax > 0f;    // 溢出滚动中：不显示省略号
+            st.Spectrum = Spectrum.Bars;
 
             // 位置与尺寸
             if (!_posReady) { _wx = Location.X; _wy = Location.Y; _posReady = true; }
@@ -249,6 +250,7 @@ namespace NvHud
             forced.TitleOffset = st.TitleOffset;
             forced.ShowControls = st.ShowControls;
             forced.TitleScrolls = st.TitleScrolls;
+            forced.Spectrum = st.Spectrum;
 
             // 以目标尺寸为画布，绘制后若中间尺寸更小则整体缩放，保证不裁切
             SizeF target = Renderer.LogicalSize(st.Hover);
@@ -506,10 +508,8 @@ namespace NvHud
                     StartMove();
                     return;
                 }
-                if (!IsOnBar(e.Location)) return;   // 只有音量条那块区域能调音量
-                _draggingLeft = true;
-                EmitVolume(VolumeAt(e.Location));
-                Capture = true;
+                StartMove();   // 滑条已移入参数面板：整张卡片都能拖动窗口
+                return;
             }
             else if (e.Button == MouseButtons.Right)
             {
@@ -559,11 +559,11 @@ namespace NvHud
                 return;
             }
 
-            if (IsOnClose(e.Location)) Cursor = Cursors.Hand;
-            else if (IsOnGear(e.Location)) Cursor = Cursors.Hand;
+            if (_hover && IsOnClose(e.Location)) Cursor = Cursors.Hand;
+            else if (_hover && IsOnGear(e.Location)) Cursor = Cursors.Hand;
             else if (IsOnIcon(e.Location)) Cursor = Cursors.SizeAll;
-            else if (IsOnBar(e.Location)) Cursor = Cursors.Hand;
-            else Cursor = Cursors.Hand;
+            else Cursor = Cursors.SizeAll;   // 整张卡片可拖动
+
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
