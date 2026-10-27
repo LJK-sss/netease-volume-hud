@@ -172,13 +172,18 @@ public static Bitmap Current { get { return CurrentSkippingBad(); } }
                         g.Clear(Color.Transparent);
                         using (var mask = new GraphicsPath())
                         {
-                            mask.AddEllipse(0, 0, Size - 1, Size - 1);
+                            float rr = (Size - 1) * 0.30f;   // 圆角半径，和 Renderer.AvatarRadiusRatio 保持一致
+                            mask.AddArc(0, 0, rr * 2f, rr * 2f, 180, 90);
+                            mask.AddArc(Size - 1 - rr * 2f, 0, rr * 2f, rr * 2f, 270, 90);
+                            mask.AddArc(Size - 1 - rr * 2f, Size - 1 - rr * 2f, rr * 2f, rr * 2f, 0, 90);
+                            mask.AddArc(0, Size - 1 - rr * 2f, rr * 2f, rr * 2f, 90, 90);
+                            mask.CloseFigure();
                             g.SetClip(mask);
                             g.DrawImage(sq, 0, 0, Size, Size);
                             g.ResetClip();
                             float penW = Math.Max(1f, Size / 40f);
                             using (var pen = new Pen(Color.FromArgb(120, 255, 255, 255), penW))
-                                g.DrawEllipse(pen, penW / 2f, penW / 2f, Size - 1 - penW, Size - 1 - penW);
+                                g.DrawPath(pen, mask);
                         }
                     }
                     return outp;

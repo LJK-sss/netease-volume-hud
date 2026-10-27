@@ -443,10 +443,9 @@ namespace NvHud
             float s = BaseScale;
             float lx = p.X / s, ly = p.Y / s;
             float iconD = _animT > 0.5f ? 40f : 28f;
-            float cx = 9f + iconD / 2f;
             float cy = Renderer.H_HOVER * Renderer.IconCyRatio;
-            float dx = lx - cx, dy = ly - cy;
-            return dx * dx + dy * dy <= (iconD / 2f) * (iconD / 2f);
+            float x0 = 9f, y0 = cy - iconD / 2f;
+            return lx >= x0 && lx <= x0 + iconD && ly >= y0 && ly <= y0 + iconD;   // 圆角方形：整个框都算
         }
         private bool IsOnGear(Point p)
         {

@@ -29,6 +29,7 @@ namespace NvHud
         public const float W_HOVER = 196f;   // 与常态同宽：展开只增高，避免右侧出屏
         public const float H_HOVER = 76f;
         public const float IconCyRatio = 0.62f;   // 图标/数字的垂直中心（相对卡片高度）
+        public const float AvatarRadiusRatio = 0.30f;   // 头像圆角半径（相对边长）
 
         // ---- 内置头像（从 exe 资源加载，artwork 文件夹为空时使用）----
         private static Bitmap _avatar;
@@ -77,6 +78,20 @@ namespace NvHud
         public static SizeF LogicalSize(bool hover)
         {
             return hover ? new SizeF(W_HOVER, H_HOVER) : new SizeF(W_NORMAL, H_NORMAL);
+        }
+
+        /// <summary>往已有路径里加一个圆角矩形。</summary>
+        private static void AddRoundedRect(GraphicsPath path, float x, float y, float w, float h, float r)
+        {
+            if (r < 0.5f) r = 0.5f;
+            if (r > w / 2f) r = w / 2f;
+            if (r > h / 2f) r = h / 2f;
+            float d = r * 2f;
+            path.AddArc(x, y, d, d, 180, 90);
+            path.AddArc(x + w - d, y, d, d, 270, 90);
+            path.AddArc(x + w - d, y + h - d, d, d, 0, 90);
+            path.AddArc(x, y + h - d, d, d, 90, 90);
+            path.CloseFigure();
         }
 
         private static GraphicsPath Round(float x, float y, float w, float h, float r)
@@ -232,7 +247,7 @@ namespace NvHud
                 var st1 = g.Save();
                 using (var ip2 = new GraphicsPath())
                 {
-                    ip2.AddEllipse(iconX, iconY, iconD, iconD);
+                    AddRoundedRect(ip2, iconX, iconY, iconD, iconD, iconD * AvatarRadiusRatio);
                     g.SetClip(ip2);
                     g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                     // 轮换时淡入淡出：上一张逐渐透明，当前张逐渐显现
@@ -257,7 +272,7 @@ namespace NvHud
             {
                 using (var ip = new GraphicsPath())
                 {
-                    ip.AddEllipse(iconX, iconY, iconD, iconD);
+                    AddRoundedRect(ip, iconX, iconY, iconD, iconD, iconD * AvatarRadiusRatio);
                     if (off)
                     {
                         using (var b = new SolidBrush(C(52, 52, 60, 255))) g.FillPath(b, ip);
