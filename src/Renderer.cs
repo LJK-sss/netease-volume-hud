@@ -210,23 +210,39 @@ namespace NvHud
             int a = (int)(255 * Math.Max(0f, Math.Min(1f, SpectrumAlpha)));
             g.SmoothingMode = SmoothingMode.None;
 
+            // 先数出要画多少格，再一次性批量填充（FillRectangles 一次调用比循环快很多）
+            int count = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float v = bars[i];
+                if (v < 0.02f) continue;
+                int lit = (int)Math.Round(v * levels);
+                if (lit < 1) lit = 1;
+                count += lit;
+            }
+            if (count <= 0) return;
+
+            var rects = new RectangleF[count];
+            int k = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float v = bars[i];
+                if (v < 0.02f) continue;
+                int lit = (int)Math.Round(v * levels);
+                if (lit < 1) lit = 1;
+                float x = x0 + i * pitchX;
+                for (int lv = 0; lv < lit; lv++)
+                {
+                    float y = bottom - (lv + 1) * pitchY + gap;
+                    rects[k++] = new RectangleF(x, y, cellW, cell);
+                }
+            }
+
             using (var br = new LinearGradientBrush(
                 new PointF(x0, top), new PointF(x0, bottom),
                 Color.FromArgb(a, 250, 250, 255), Color.FromArgb(a, 150, 150, 164)))
             {
-                for (int i = 0; i < n; i++)
-                {
-                    float v = bars[i];
-                    if (v < 0.02f) continue;
-                    int lit = (int)Math.Round(v * levels);
-                    if (lit < 1) lit = 1;
-                    float x = x0 + i * pitchX;
-                    for (int lv = 0; lv < lit; lv++)
-                    {
-                        float y = bottom - (lv + 1) * pitchY + gap;
-                        g.FillRectangle(br, x, y, cellW, cell);
-                    }
-                }
+                g.FillRectangles(br, rects);
             }
         }
 
