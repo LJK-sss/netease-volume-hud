@@ -41,6 +41,7 @@ namespace NvHud
 
         /// <summary>频谱柱子浓度 0~1（参数面板可调）。</summary>
         public static float SpectrumAlpha = 0.28f;
+        public static bool SpectrumGridMode = true;   // true 方格 / false 连续柱
 
         private static void EnsureArt()
         {
@@ -158,6 +159,12 @@ namespace NvHud
             int a = (int)(255 * Math.Max(0f, Math.Min(1f, SpectrumAlpha)));
             var st0 = g.Save();
             g.SetClip(Round(0, 0, W_HOVER, h, 15f), CombineMode.Intersect);
+            if (SpectrumGridMode)
+            {
+                DrawSpectrumGrid(g, bars, X0, X1, TOP, bottom);
+                g.Restore(st0);
+                return;
+            }
             g.SmoothingMode = SmoothingMode.None;
 
             using (var br = new LinearGradientBrush(
@@ -179,6 +186,48 @@ namespace NvHud
                 g.FillRectangle(bb, X0, bottom - 0.5f, w, 0.8f);
 
             g.Restore(st0);
+        }
+
+        /// <summary>方格版频谱：每列由若干个小方格堆起来（3px 格 + 1px 缝）。</summary>
+        private static void DrawSpectrumGrid(Graphics g, float[] bars, float x0, float x1, float top, float bottom)
+        {
+            int n = bars.Length;
+            if (n <= 0) return;
+            float w = x1 - x0;
+            float maxH = bottom - top;
+            if (maxH <= 2f) return;
+
+            const float cell = 3f;      // 方格边长（逻辑像素）
+            const float gap = 1f;
+            float pitchY = cell + gap;
+            int levels = (int)Math.Floor((maxH + gap) / pitchY);
+            if (levels < 1) levels = 1;
+
+            float pitchX = w / n;
+            float cellW = Math.Min(cell + 0.6f, pitchX - 1f);
+            if (cellW < 1.2f) cellW = 1.2f;
+
+            int a = (int)(255 * Math.Max(0f, Math.Min(1f, SpectrumAlpha)));
+            g.SmoothingMode = SmoothingMode.None;
+
+            using (var br = new LinearGradientBrush(
+                new PointF(x0, top), new PointF(x0, bottom),
+                Color.FromArgb(a, 250, 250, 255), Color.FromArgb(a, 150, 150, 164)))
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    float v = bars[i];
+                    if (v < 0.02f) continue;
+                    int lit = (int)Math.Round(v * levels);
+                    if (lit < 1) lit = 1;
+                    float x = x0 + i * pitchX;
+                    for (int lv = 0; lv < lit; lv++)
+                    {
+                        float y = bottom - (lv + 1) * pitchY + gap;
+                        g.FillRectangle(br, x, y, cellW, cell);
+                    }
+                }
+            }
         }
 
         private static void DrawWithAlpha(Graphics g, Image img, RectangleF dst, float alpha)

@@ -20,7 +20,7 @@ namespace NvHud
         public const float ROW_H = 30f;
         public const float PAD_Y = 7f;
         public const float SEP_H = 10f;
-        public const int ACTION_ROWS = 7;      // 0静音 1自动增益 2界面大小 3不透明度 4开机自启 5频谱浓度 6退出
+        public const int ACTION_ROWS = 8;      // 0静音 1自动增益 2界面大小 3不透明度 4开机自启 5频谱浓度 6频谱样式 7退出
 
 
 
@@ -42,6 +42,7 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
         public float OpacityValue = 0.88f;
 
         public int SpectrumPct = 28;
+        public bool SpectrumGrid = true;
 
         public int HoverRow = -1;
         public int HoverZone;   // 0 无, 1 左箭头, 2 右箭头, 3 整行
@@ -53,6 +54,7 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
         public event Action AutoStartToggle;
 
         public event Action<int> SpectrumStep;
+        public event Action SpectrumStyleToggle;
 
         public event Action ExitRequested;
 
@@ -200,8 +202,8 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
         /// <summary>第 i 行（0..5）的逻辑 y；第 5 行在分隔线之后。</summary>
         private float RowY(int i)
         {
-            if (i <= 5) return PAD_Y + i * ROW_H;
-            return PAD_Y + 6 * ROW_H + SEP_H;
+            if (i <= 6) return PAD_Y + i * ROW_H;
+            return PAD_Y + 7 * ROW_H + SEP_H;
         }
 
         private void Draw(Graphics g, float s)
@@ -272,6 +274,11 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
                     DrawChevron(g, w - 40, y + ROW_H / 2f, false, hover && HoverZone == 1);
                     DrawChevron(g, w - 18, y + ROW_H / 2f, true, hover && HoverZone == 2);
                 }
+                else if (i == 6)
+                {
+                    DrawText(g, "频谱样式", y);
+                    DrawValue(g, w, y, SpectrumGrid ? "方格" : "柱状");
+                }
                 else
                 {
                     using (var b = new SolidBrush(hover ? C(255, 120, 130, 255) : C(226, 120, 128, 235)))
@@ -280,7 +287,7 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
             }
 
             // 分隔线
-            float sy = RowY(6) - SEP_H / 2f;
+            float sy = RowY(7) - SEP_H / 2f;
             using (var pen = new Pen(C(255, 255, 255, 26), 0.8f))
                 g.DrawLine(pen, 12, sy, w - 12, sy);
         }
@@ -376,7 +383,7 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
             if (row < 0) return;
             int zone = ZoneAt(e.Location, row);
 
-            if (row == 6)
+            if (row == 7)
             {
                 if (ExitRequested != null) ExitRequested();
                 return;
@@ -400,6 +407,9 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
                     break;
                 case 4:
                     if (AutoStartToggle != null) AutoStartToggle();
+                    break;
+                case 6:
+                    if (SpectrumStyleToggle != null) SpectrumStyleToggle();
                     break;
                 case 5:
                     if (zone == 1 && SpectrumStep != null) SpectrumStep(-5);

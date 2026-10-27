@@ -172,11 +172,13 @@ namespace NvHud
 
             // 频谱：只在有声音时重绘（约 30fps），停播时慢慢收回
             Renderer.SpectrumAlpha = _cfg.Spectrum / 100f;
+            Renderer.SpectrumGridMode = _cfg.SpectrumGrid == 1;
             _overlay.MarqueeStep = _cfg.MarqueeStep;
             _overlay.MarqueeFps = _cfg.MarqueeFps;
             // 统一渲染调度：频谱 15fps、走马灯按自己的 fps 推进，
             // 两个变化合并成一帧重绘，避免"两个定时器各画一遍"
             Renderer.SpectrumAlpha = _cfg.Spectrum / 100f;
+            Renderer.SpectrumGridMode = _cfg.SpectrumGrid == 1;
             _overlay.MarqueeStep = _cfg.MarqueeStep;
             _overlay.MarqueeFps = _cfg.MarqueeFps;
             _overlay.MarqueeHoldMs = _cfg.MarqueeHoldMs;
@@ -957,6 +959,18 @@ namespace NvHud
             Log.W("参数: 频谱浓度 = " + v + "%");
         }
 
+        private void SetSpectrumGrid(int v)
+        {
+            if (v < 0) v = 0;
+            if (v > 1) v = 1;
+            _cfg.SpectrumGrid = v;
+            _cfg.Save();
+            Renderer.SpectrumGridMode = v == 1;
+            if (_menu != null) { _menu.SpectrumGrid = v == 1; _menu.Refresh_(); }
+            _overlay.Repaint();
+            Log.W("参数: 频谱样式 = " + (v == 1 ? "方格" : "柱状"));
+        }
+
 
 
 
@@ -1005,6 +1019,7 @@ namespace NvHud
                 RefreshMenu();
             };
             _menu.SpectrumStep += delegate(int d) { SetSpectrum(_cfg.Spectrum + d); RefreshMenu(); };
+            _menu.SpectrumStyleToggle += delegate { SetSpectrumGrid(_cfg.SpectrumGrid == 1 ? 0 : 1); };
         }
 
         private void SyncMenuState()

@@ -22,6 +22,7 @@ namespace NvHud
         public int MeasureSeconds = 12;      // 每首歌测量时长（秒）
         public int CacheTrustSec = 20;       // 缓存信任期（秒）：开头这段时间内不自动改音量
         public int Spectrum = 28;            // 频谱柱子浓度（0~50）
+        public int SpectrumGrid = 1;             // 频谱样式：1 方格 / 0 连续柱
         public int MarqueeStep = 1;          // 跑马灯每帧位移（逻辑像素）
         public int MarqueeFps = 15;           // 跑马灯刷新率
         public int MarqueeHoldMs = 2000;     // 开头/结尾停顿（毫秒）
@@ -103,6 +104,7 @@ namespace NvHud
                         case "measureSeconds": c.MeasureSeconds = Int(v, c.MeasureSeconds); break;
                         case "cacheTrustSec": c.CacheTrustSec = Int(v, c.CacheTrustSec); break;
                         case "spectrum": c.Spectrum = Int(v, c.Spectrum); break;
+                        case "spectrumGrid": c.SpectrumGrid = Int(v, c.SpectrumGrid); break;
                         case "marqueeStep": c.MarqueeStep = Int(v, c.MarqueeStep); break;
                         case "marqueeFps": c.MarqueeFps = Int(v, c.MarqueeFps); break;
                         case "marqueeHoldMs": c.MarqueeHoldMs = Int(v, c.MarqueeHoldMs); break;
@@ -132,6 +134,8 @@ namespace NvHud
             if (c.CacheTrustSec > 60) c.CacheTrustSec = 60;
             if (c.Spectrum < 0) c.Spectrum = 0;
             if (c.Spectrum > 50) c.Spectrum = 50;
+            if (c.SpectrumGrid < 0) c.SpectrumGrid = 0;
+            if (c.SpectrumGrid > 1) c.SpectrumGrid = 1;
             if (c.MarqueeStep < 1) c.MarqueeStep = 1;
             if (c.MarqueeStep > 16) c.MarqueeStep = 16;
             if (c.MarqueeFps < 2) c.MarqueeFps = 2;
@@ -159,6 +163,7 @@ namespace NvHud
                 lines.Add("measureSeconds=" + MeasureSeconds.ToString(CultureInfo.InvariantCulture));
                 lines.Add("cacheTrustSec=" + CacheTrustSec.ToString(CultureInfo.InvariantCulture));
                 lines.Add("spectrum=" + Spectrum.ToString(CultureInfo.InvariantCulture));
+                lines.Add("spectrumGrid=" + SpectrumGrid.ToString(CultureInfo.InvariantCulture));
                 lines.Add("marqueeStep=" + MarqueeStep.ToString(CultureInfo.InvariantCulture));
                 lines.Add("marqueeFps=" + MarqueeFps.ToString(CultureInfo.InvariantCulture));
                 lines.Add("marqueeHoldMs=" + MarqueeHoldMs.ToString(CultureInfo.InvariantCulture));
