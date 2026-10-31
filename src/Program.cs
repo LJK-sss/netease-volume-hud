@@ -49,6 +49,8 @@ namespace NvHud
         private readonly Timer _ramp = new Timer();
         private readonly Timer _hb = new Timer();      // 2 分钟一次心跳（内存/句柄趋势，排查静默退出）
         private readonly Timer _portrait = new Timer();   // 头像轮换（30 秒）
+        private PickerPanel _picker;
+        private FileSystemWatcher _artWatch;
         private readonly Timer _portraitFade = new Timer();   // 轮换时的淡入淡出
         private readonly Timer _anim = new Timer();       // 统一渲染调度（频谱 + 走马灯）
         private DateTime _lastSpecTick = DateTime.MinValue;
@@ -117,6 +119,7 @@ namespace NvHud
             // 点一下圆形头像：立刻换下一张，并重置 30 秒计时
             _overlay.AvatarNextRequested += delegate
             {
+                Artwork.Rescan();
                 if (Artwork.Count <= 1) return;
                 Artwork.Next();
                 _portraitFade.Start();
@@ -146,18 +149,63 @@ namespace NvHud
             _hb.Start();
 
             // 头像轮换：exe 同级 artwork\ 文件夹，每 30 秒换一张（300ms 淡入淡出）
+            string artDir = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath) ?? ".", "artwork");
             try
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                string artDir = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath) ?? ".", "artwork");
                 Artwork.Load(artDir, Renderer.EmbeddedAvatar);
                 Log.W("头像加载: " + Artwork.Count + " 张，耗时 " + sw.ElapsedMilliseconds + " ms" + (Artwork.Count == 0 ? "（使用内置）" : ""));
             }
             catch (Exception ex) { Log.W("头像加载失败: " + ex.Message); }
 
+            // 右键头像 → 头像选择器（打开前重扫目录，运行中新加的图也能看到）
+            _picker = new PickerPanel();
+            _picker.PickRequested += delegate(string path)
+            {
+                if (Artwork.SetCurrent(path, true))
+                {
+                    _portraitFade.Start();
+                    _overlay.Repaint();
+                }
+            };
+            _overlay.AvatarPickerRequested += delegate
+            {
+                Artwork.Rescan();
+                _picker.ShowNearCursor();
+            };
+
+            // 监听 artwork 目录：丢图/删图后自动生效，不用重启 HUD
+            try
+            {
+                _artWatch = new FileSystemWatcher(artDir);
+                _artWatch.IncludeSubdirectories = false;
+                _artWatch.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size;
+                FileSystemEventHandler onArt = delegate
+                {
+                    try
+                    {
+                        _overlay.BeginInvoke((MethodInvoker)delegate
+                        {
+                            if (Artwork.Rescan())
+                            {
+                                Log.W("头像目录变化: 现有 " + Artwork.Count + " 张");
+                                if (_picker != null) _picker.Refresh_();
+                            }
+                        });
+                    }
+                    catch { }
+                };
+                _artWatch.Created += onArt;
+                _artWatch.Deleted += onArt;
+                _artWatch.Renamed += delegate(object s2, RenamedEventArgs e2) { onArt(null, null); };
+                _artWatch.EnableRaisingEvents = true;
+            }
+            catch (Exception ex) { Log.W("头像目录监听失败: " + ex.Message); }
+
             _portrait.Interval = 30000;
             _portrait.Tick += delegate
             {
+                Artwork.Rescan();
                 if (Artwork.Count <= 1) return;
                 Artwork.Next();
                 _portraitFade.Start();

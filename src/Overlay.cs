@@ -62,6 +62,7 @@ namespace NvHud
         public event Action ExitRequested;
         public event Action SettingsRequested;
         public event Action AvatarNextRequested;    // 点一下圆形头像：换下一张
+        public event Action AvatarPickerRequested;   // 右键头像：打开选择器
 
         public int Volume { get { return _volume; } }
 
@@ -565,7 +566,8 @@ namespace NvHud
                     Capture = false;
                     if (!_rightMoved)
                     {
-                        if (_rightOnGear && MenuRequested != null) MenuRequested();
+                        if (IsOnAvatar(e.Location)) { if (AvatarPickerRequested != null) AvatarPickerRequested(); }
+                        else if (_rightOnGear && MenuRequested != null) MenuRequested();
                     }
                     else
                     {
