@@ -14,7 +14,7 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 
 | | `LevelBand.exe`（完整版） | `LevelBand-lite.exe`（轻量版） |
 |---|---|---|
-| 体积 | 443 KB | **289 KB** |
+| 体积 | 436 KB | **282 KB** |
 | 窗口 | 196 × 130 | **196 × 76** |
 | 顶边小人 | 有（31 帧 / 6 个动作） | 完全没有 |
 | 挂钟 / 频谱 / 歌名滚动 / 深浅主题 | 有 | 有 |
@@ -99,7 +99,15 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 
 要求：Windows 10/11 x64（.NET Framework 4.8 系统自带）
 
-> exe 带了自签名证书，但**新文件名在 SmartScreen 那里没有声誉记录**，首次运行可能提示"Windows 已保护你的电脑"。点「更多信息 → 仍要运行」即可，之后不会再来。也可以直接用 `build.ps1` 自己编译，完全绕开签名问题。
+> **首次运行会被 Windows 拦一次，这是正常现象。**
+>
+> exe **没有购买代码签名证书**。SmartScreen 对来源不明、下载量少的程序一律先拦一次，跟程序本身是否安全无关。点「更多信息」→ 右下角出现「仍要运行」→ 点它即可，同名的 exe 以后不再提示。
+>
+> 如果被 Defender 或杀软隔离：本程序通过 WASAPI 调整其它程序的音量，行为上有"操作别的程序"的特征，偶尔会被启发式规则误判。把它加入排除项，或者用 `build.cmd` 自己编一份——你编译出来的文件在你机器上是干净的。
+>
+> **为什么发布版不带签名**：自签名证书在别人的机器上验证不过，只会把提示从「未知发布者」变成「签名无效」，反而更让人不敢运行。所以 `dist/` 和 Releases 里的 exe 是无签名裸 exe。
+>
+> 详细版说明见 `dist/首次运行必读.txt`。
 
 ### 操作
 
@@ -160,7 +168,7 @@ artwork\          头像图（放在 exe 同级目录，按修改时间轮播）
 | 音量不能超过 100% | 会话推子物理上限 |
 | 目前只支持网易云 | 进程名写死为 `cloudmusic.exe`（想换播放器改 `Program.cs` 里的 `ProccessName`） |
 | 响度是 RMS 的 P80，不是标准 LUFS | 同一读数下「响」和「吵」不完全等价 |
-| 无正式代码签名 | 可能被杀软提示，可自行编译 |
+| 无代码签名 | 首次运行会被 SmartScreen 拦一次，见上文「安装 / 运行」 |
 
 ### 隐私
 
@@ -180,7 +188,7 @@ A tiny HUD that keeps **one app's audio** inside a loudness band you define — 
 
 ### Two builds
 
-`LevelBand.exe` (443 KB, 196×130) carries a small animated character sitting on the card's top edge; `LevelBand-lite.exe` (289 KB, 196×76) is exactly the same HUD without it. Everything else — clock, spectrum, marquee title, light/dark themes, loudness display — is identical.
+`LevelBand.exe` (436 KB, 196×130) carries a small animated character sitting on the card's top edge; `LevelBand-lite.exe` (282 KB, 196×76) is exactly the same HUD without it. Everything else — clock, spectrum, marquee title, light/dark themes, loudness display — is identical.
 
 ### Why
 
@@ -217,7 +225,7 @@ Only needs the `csc.exe` shipped with .NET Framework 4.x. No third-party depende
 - Currently hardcoded to Netease Cloud Music (`cloudmusic.exe`); change `ProccessName` in `Program.cs` for other players.
 - Cannot draw over exclusive-fullscreen games.
 - Loudness is RMS P80, not BS.1770 LUFS.
-- Self-signed binary — SmartScreen may warn on first run of a given file name. Build it yourself if you prefer.
+- **Not code-signed** — SmartScreen blocks it once on first run. Click "More info → Run anyway", or build it yourself. See `dist/首次运行必读.txt`.
 
 ### Privacy
 

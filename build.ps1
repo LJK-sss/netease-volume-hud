@@ -32,9 +32,9 @@ foreach ($c in @(
 if (-not $csc) { throw "找不到 csc.exe。请确认已安装 .NET Framework 4.x（Windows 10/11 自带）。" }
 if (-not (Test-Path $srcDir)) { throw "找不到源码目录：$srcDir" }
 
-# 2) 结束正在运行的实例（否则会报 CS0016 无法写入）
-Get-Process LevelBand -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Milliseconds 500
+# 2) 准备输出目录
+#    这里不结束正在运行的 LevelBand：输出在 dist\ 下，和已经部署的那份不冲突；
+#    万一目标文件被占用，csc 会报 CS0016，把那个进程关掉再编一次即可。
 if (-not (Test-Path $dist)) { New-Item -ItemType Directory -Path $dist | Out-Null }
 
 function Invoke-Build {
@@ -65,11 +65,16 @@ function Invoke-Build {
     $cscArgs += ($csFiles | ForEach-Object { $_.FullName })
 
     $sw = [Diagnostics.Stopwatch]::StartNew()
-    & $csc $cscArgs
+    # 必须把编译器输出接住：放任它进管道，会被当成函数的返回值，
+    # 后面 Get-FileHash 拿到的是 "src\Overlay.cs(44,23): ..." 这种报文而不是路径。
+    $log = & $csc $cscArgs 2>&1
     $code = $LASTEXITCODE
     $sw.Stop()
 
-    if ($code -ne 0) { throw "编译失败（csc 退出码 $code）" }
+    if ($code -ne 0) {
+        $log | Where-Object { $_ -is [string] -and $_.Trim() } | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+        throw "编译失败（csc 退出码 $code）"
+    }
     if (-not (Test-Path $outExe)) { throw "编译失败：没有生成 $outExe" }
 
     $kb = [math]::Round((Get-Item $outExe).Length / 1KB, 1)

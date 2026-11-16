@@ -1,0 +1,38 @@
+﻿LevelBand — 首次运行必读
+
+【会看到什么】
+双击后 Windows 可能弹出「Windows 已保护你的电脑」。
+这是正常的：这个 exe 没有购买代码签名证书，SmartScreen 对任何
+来源不明、下载量少的程序都会先拦一次，与程序本身是否安全无关。
+
+【怎么放行】
+点「更多信息」→ 右下角出现「仍要运行」→ 点它。
+放行一次后，同名的 exe 以后不会再被拦。
+
+【如果被 Defender / 杀软隔离】
+本程序通过 Windows 的 WASAPI 接口调整网易云的音量，
+行为特征上有"操作其它程序"的动作，偶尔会被启发式规则误判。
+两种处理：
+  1. 把 exe 加入杀软的排除项 / 白名单
+  2. 自己编译一份（见下），你编译出来的文件在你机器上是干净的
+
+【自己编译（推荐给不放心的人）】
+需要 Windows 自带的 .NET Framework 4.x，无需安装任何东西：
+  build.cmd            编译完整版  -> dist\LevelBand.exe
+  build.cmd -Lite      编译轻量版  -> dist\LevelBand-lite.exe
+  build.cmd -All       两个都编
+
+【两个版本的区别】
+  LevelBand.exe       436 KB  窗口 196x130  卡片顶边有一个会动的小人
+  LevelBand-lite.exe  282 KB  窗口 196x76   没有小人，其余完全一致
+
+【授权】
+代码 MIT。
+卡片顶边的小人（社区二创的 DeepSeek「大肥鱼」鲸鱼娘，非官方形象）
+素材来自 https://github.com/PC2005-cloud/dsh-pet ，按 CC BY-NC-SA 4.0 使用：
+需署名、不可商用、二创需以相同协议发布。
+不想要这个形象请用 lite 版 —— 那个 exe 里完全不含该素材。
+
+【数据位置】
+%APPDATA%\LevelBand\   （config.ini / songs.ini / log.txt）
+头像图放在 exe 同级的 artwork\ 目录里，按修改时间轮播。

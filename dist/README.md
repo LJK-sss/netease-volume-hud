@@ -1,10 +1,10 @@
-# LevelBand 两个变体怎么选
+﻿# LevelBand 两个变体怎么选
 
 同一个代码库，编译开关不同，出两个 exe。功能差异只有一处：**卡片顶边上的小鲸鱼娘**。
 
 | | `LevelBand.exe` | `LevelBand-lite.exe` |
 |---|---|---|
-| 体积 | 443.5 KB | 289.5 KB |
+| 体积 | 436.5 KB | 282.5 KB |
 | 窗口 | 196 × 130 | 196 × 76 |
 | 顶边小人 | 有，31 帧 6 个动作 | 完全没有 |
 | 挂钟 / 频谱 / 歌名滚动 / 深浅主题 | 有 | 有 |
@@ -76,7 +76,7 @@
 
 早期版本把 PNG 编码成 base64 字符串常量嵌在 `.cs` 里，实测代价是原始字节的 **5.5 倍**：PNG 36 KB → base64 48 KB → C# `const string` 按 UTF-16 存 97 KB → 加 PE 段对齐后 `.text` 段涨 200 KB。
 
-改用托管资源（`/resource:whale.png,NvHud.whale.png` + `GetManifestResourceStream`）后原样存二进制，31 帧 151 KB 的 PNG 只让 exe 增约 154 KB。所以这一版**帧数是最早那个单动作版的 5 倍、动作 6 倍，体积仍比它（484 KB）小 40 KB**。
+改用托管资源（`/resource:whale.png,NvHud.whale.png` + `GetManifestResourceStream`）后原样存二进制，31 帧 151 KB 的 PNG 只让 exe 增约 154 KB。所以这一版**帧数是最早那个单动作版的 5 倍、动作 6 倍，体积仍比它（484 KB）小 47 KB**。
 
 ## 形象授权
 
