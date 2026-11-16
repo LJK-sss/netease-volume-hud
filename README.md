@@ -107,7 +107,7 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 >
 > **为什么发布版不带签名**：自签名证书在别人的机器上验证不过，只会把提示从「未知发布者」变成「签名无效」，反而更让人不敢运行。所以 `dist/` 和 Releases 里的 exe 是无签名裸 exe。
 >
-> 详细版说明见 `dist/首次运行必读.txt`。
+> 详细版说明见 Release 附件 `FIRST-RUN.txt`。
 
 ### 操作
 
@@ -225,7 +225,7 @@ Only needs the `csc.exe` shipped with .NET Framework 4.x. No third-party depende
 - Currently hardcoded to Netease Cloud Music (`cloudmusic.exe`); change `ProccessName` in `Program.cs` for other players.
 - Cannot draw over exclusive-fullscreen games.
 - Loudness is RMS P80, not BS.1770 LUFS.
-- **Not code-signed** — SmartScreen blocks it once on first run. Click "More info → Run anyway", or build it yourself. See `dist/首次运行必读.txt`.
+- **Not code-signed** — SmartScreen blocks it once on first run. Click "More info → Run anyway", or build it yourself. See `FIRST-RUN.txt` in the release assets.
 
 ### Privacy
 
