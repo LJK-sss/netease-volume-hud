@@ -199,6 +199,15 @@ LevelBand-lite.exe  e161910391d1ceb55947920ab6e90a0e2e6bb1fd67cf61093ae281cce8ff
 - 把图全删掉不会出错，会自动回落到内置的音符占位图
 - 换 exe 位置时记得把 `artwork` 一起搬走，否则会以为图丢了
 
+**程序不会动你放进去的东西。** 这条值得单独写清楚，因为“软件自己把图清空了”是很容易怀疑的事：
+
+- **启动、轮换、退出全程只读这个目录**——没有删除、重命名、覆盖、移动任何图片
+- 唯一一次写入是**首次创建目录时**那张 `把图片放这里.txt`。目录只要已存在，那段代码一行都不执行，所以你删掉说明它也不会回来
+- 图片打不开只会被跳过（记在内存里，文件改动后自动重试），不会被删除或改写
+- 30 秒轮换只改内存里的索引，不碰磁盘
+
+每次启动日志里都有一行 `头像加载: N 张`（`%APPDATA%\LevelBand\log.txt`）。如果哪天它变成 `0 张（无自定义图，显示音符）` 而你没动过文件，说明文件夹真的空了——通常是换了 exe 位置、或者被同步盘/杀软处理了，不是程序干的。
+
 ### 参数
 
 | 参数 | 默认 | 范围 | 说明 |
@@ -311,6 +320,15 @@ Common trip-ups:
 - **Subfolders are not scanned**; images must sit directly inside `artwork`
 - Deleting every image is harmless — it falls back to the built-in note tile
 - If you move the exe, move `artwork` with it
+
+**The program never touches what you put there.** Worth stating outright, since "the app wiped my images" is an easy thing to suspect:
+
+- Startup, rotation and exit only **read** the folder — nothing is deleted, renamed, overwritten or moved
+- The only write is the `把图片放这里.txt` created **the first time the folder is made**; once the folder exists that code path never runs, which is also why deleting the readme keeps it deleted
+- An unreadable image is skipped (remembered in memory, retried if the file changes) — never deleted or rewritten
+- The 30 s rotation only advances an in-memory index
+
+Every launch logs `头像加载: N 张` in `%APPDATA%\LevelBand\log.txt`. If that ever reads `0 张` when you haven't touched the folder, the files really are gone — usually because the exe moved, or a sync client / antivirus removed them.
 
 #### Blocked by Windows? Let an AI fix it
 
