@@ -19,6 +19,11 @@ namespace NvHud
         public float TitleOffset = 0f;   // 长标题滚动偏移（逻辑像素）
         public bool TitleScrolls = false;   // 标题在滚动（溢出）：此时不画省略号
         public bool ShowControls = false;   // 悬停时显示菜单/关闭按钮
+        public float ClockAngle = 0f;   // 吊钟摆角（度）：由播放活动驱动，空闲时收回到 0
+        public float WhaleX = 116f;     // 顶边小人：脚底中心的 x（卡片逻辑坐标）
+        public float WhaleBob = 0f;     // 顶边小人：上下浮动偏移
+        public float WhaleFaceX = 1f;   // 顶边小人：水平缩放，-1 表示朝左（镜像），过渡时取中间值
+        public int WhaleFrame = 0;      // 顶边小人：精灵图帧号
         public float[] Spectrum;   // 44 个 0~1 的柱子高度（null = 不画）
     }
 
@@ -28,6 +33,16 @@ namespace NvHud
         public const float H_NORMAL = 50f;
         public const float W_HOVER = 196f;   // 与常态同宽：展开只增高，避免右侧出屏
         public const float H_HOVER = 76f;
+        /// <summary>
+        /// 卡片顶边上方留给小人的高度。窗口比卡片高这么多，这一段全透明。
+        /// NOWHALE 编译开关下取 0：所有依赖 TopPad 的几何计算（窗口高度、命中测试、
+        /// 绘制平移）都会自动退化，不需要逐处加条件编译。
+        /// </summary>
+#if NOWHALE
+        public const float TopPad = 0f;
+#else
+        public const float TopPad = 54f;
+#endif
         public const float IconCyRatio = 0.62f;   // 图标/数字的垂直中心（相对卡片高度）
         public const float AvatarRadiusRatio = 0.30f;   // 头像圆角半径（相对边长）
 
@@ -57,10 +72,10 @@ namespace NvHud
         }
 
         public const string TitleFontName = "Microsoft YaHei UI";
-        public const float TitleFontPx = 11.5f;
+        public const float TitleFontPx = 12.5f;
 
-        /// <summary>悬停时标题可用的宽度（逻辑像素）。</summary>
-        public const float TitleViewportW = W_HOVER - 12f - 52f;   // 标题区从左边距 12 开始
+        /// <summary>标题可用的宽度（逻辑像素）：右侧要留给音量/dB 和悬停按钮。</summary>
+        public const float TitleViewportW = 96f;   // 标题区从左边距 12 开始
 
         /// <summary>按绘制用的同款字体测量标题宽度（逻辑像素）。</summary>
         public static float MeasureTitleWidth(string text)
@@ -76,9 +91,17 @@ namespace NvHud
             catch { return 0f; }
         }
 
-        public static SizeF LogicalSize(bool hover)
+        /// <summary>卡片本体的尺寸（不含顶部的透明带）。</summary>
+        public static SizeF CardSize(bool hover)
         {
             return hover ? new SizeF(W_HOVER, H_HOVER) : new SizeF(W_NORMAL, H_NORMAL);
+        }
+
+        /// <summary>整个窗口的尺寸 = 卡片 + 顶部小人用的透明带。</summary>
+        public static SizeF LogicalSize(bool hover)
+        {
+            SizeF c = CardSize(hover);
+            return new SizeF(c.Width, c.Height + TopPad);
         }
 
         /// <summary>往已有路径里加一个圆角矩形。</summary>
@@ -138,15 +161,16 @@ namespace NvHud
 
         /// <summary>按 alpha 画一张图（用于头像淡入淡出）。</summary>
         /// <summary>
-        /// 频谱柱子：头像右侧、标题下方这一块（逻辑 x 56~187，底边 y = 71）。
-        /// 白灰竖向渐变，画在头像/数字/文字下面。
+        /// 频谱只承担氛围：位于封面右侧，避开标题，视觉亮度低于主要内容。
+        /// visualGain 只影响绘制，不改写用户的频谱浓度配置。
         /// </summary>
-        private static void DrawSpectrum(Graphics g, float[] bars, float h)
+        private static void DrawSpectrum(Graphics g, float[] bars, float h, bool controlsVisible)
         {
-            const float X0 = 56f;
-            const float X1 = 187f;
-            const float TOP = 30f;
-            float bottom = h - 5f;
+            const float X0 = 64f;
+            const float X1 = 184f;
+            const float TOP = 33f;
+            float bottom = h - 6f;
+            float visualGain = controlsVisible ? 0.61f : 0.70f;
             float w = X1 - X0;
             float maxH = bottom - TOP;
             if (maxH <= 2f) return;
@@ -156,12 +180,13 @@ namespace NvHud
             float pitch = w / n;
             float bw = Math.Max(1.2f, pitch - 1.1f);
 
-            int a = (int)(255 * Math.Max(0f, Math.Min(1f, SpectrumAlpha)));
+            int a = (int)(255 * Math.Max(0f, Math.Min(1f, SpectrumAlpha)) * visualGain * Theme.SpectrumBoost);
+            if (a > 255) a = 255;
             var st0 = g.Save();
-            g.SetClip(Round(0, 0, W_HOVER, h, 15f), CombineMode.Intersect);
+            g.SetClip(Round(0, 0, W_HOVER, h, 18f), CombineMode.Intersect);
             if (SpectrumGridMode)
             {
-                DrawSpectrumGrid(g, bars, X0, X1, TOP, bottom);
+                DrawSpectrumGrid(g, bars, X0, X1, TOP, bottom, visualGain);
                 g.Restore(st0);
                 return;
             }
@@ -169,7 +194,7 @@ namespace NvHud
 
             using (var br = new LinearGradientBrush(
                 new PointF(X0, TOP), new PointF(X0, bottom),
-                Color.FromArgb(a, 250, 250, 255), Color.FromArgb(a, 150, 150, 164)))
+                Theme.SpectrumTop(a), Theme.SpectrumBottom((int)(a * 0.72f))))
             {
                 for (int i = 0; i < n; i++)
                 {
@@ -181,15 +206,11 @@ namespace NvHud
                 }
             }
 
-            // 1px 底线
-            using (var bb = new SolidBrush(Color.FromArgb(Math.Min(255, a + 40), 240, 240, 248)))
-                g.FillRectangle(bb, X0, bottom - 0.5f, w, 0.8f);
-
             g.Restore(st0);
         }
 
         /// <summary>方格版频谱：每列由若干个小方格堆起来（3px 格 + 1px 缝）。</summary>
-        private static void DrawSpectrumGrid(Graphics g, float[] bars, float x0, float x1, float top, float bottom)
+        private static void DrawSpectrumGrid(Graphics g, float[] bars, float x0, float x1, float top, float bottom, float visualGain)
         {
             int n = bars.Length;
             if (n <= 0) return;
@@ -207,7 +228,8 @@ namespace NvHud
             float cellW = Math.Min(cell + 0.6f, pitchX - 1f);
             if (cellW < 1.2f) cellW = 1.2f;
 
-            int a = (int)(255 * Math.Max(0f, Math.Min(1f, SpectrumAlpha)));
+            int a = (int)(255 * Math.Max(0f, Math.Min(1f, SpectrumAlpha)) * visualGain * Theme.SpectrumBoost);
+            if (a > 255) a = 255;
             g.SmoothingMode = SmoothingMode.None;
 
             // 先数出要画多少格，再一次性批量填充（FillRectangles 一次调用比循环快很多）
@@ -240,7 +262,7 @@ namespace NvHud
 
             using (var br = new LinearGradientBrush(
                 new PointF(x0, top), new PointF(x0, bottom),
-                Color.FromArgb(a, 250, 250, 255), Color.FromArgb(a, 150, 150, 164)))
+                Theme.SpectrumTop(a), Theme.SpectrumBottom((int)(a * 0.72f))))
             {
                 g.FillRectangles(br, rects);
             }
@@ -260,6 +282,105 @@ namespace NvHud
             }
         }
 
+        // ---- 吊钟（纯装饰）----
+        // 挂在频谱区顶边、右上角：表盘 18px，指针走真实时间，摆角由 Overlay 每帧给。
+        private const float ClockPivotX = 168f;
+        private const float ClockPivotY = 29f;
+        private const float ClockRod = 5f;
+        private const float ClockR = 9f;
+
+        private static void DrawClock(Graphics g, float angleDeg, bool offline)
+        {
+            GraphicsState save = g.Save();
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TranslateTransform(ClockPivotX, ClockPivotY);
+
+            // 挂点：一小段横杆，暗示"天花板"
+            using (var pen = new Pen(Theme.Fg(58), 1f))
+            {
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                g.DrawLine(pen, -3.2f, 0f, 3.2f, 0f);
+            }
+
+            g.RotateTransform(angleDeg);
+
+            using (var pen = new Pen(Theme.Fg(132), 1f))
+                g.DrawLine(pen, 0f, 0f, 0f, ClockRod + ClockR);
+
+            float cy = ClockRod + ClockR;
+            using (var b = new SolidBrush(offline ? Theme.CardBgOffline : Theme.CardBg))
+                g.FillEllipse(b, -ClockR, cy - ClockR, ClockR * 2f, ClockR * 2f);
+            using (var b = new SolidBrush(Theme.Fg(12)))
+                g.FillEllipse(b, -ClockR, cy - ClockR, ClockR * 2f, ClockR * 2f);
+            using (var pen = new Pen(Theme.Fg(150), 1f))
+                g.DrawEllipse(pen, -ClockR, cy - ClockR, ClockR * 2f, ClockR * 2f);
+
+            // 只有时针分针：18px 表盘上秒针每格只挪 0.6px，看不出来，不如不画
+            DateTime now = DateTime.Now;
+            float hourAng = ((now.Hour % 12) + now.Minute / 60f) * 30f;
+            float minAng = (now.Minute + now.Second / 60f) * 6f;
+            DrawClockHand(g, cy, hourAng, ClockR * 0.52f, 1.15f, 215);
+            DrawClockHand(g, cy, minAng, ClockR * 0.78f, 0.9f, 175);
+
+            using (var b = new SolidBrush(Theme.Fg(220)))
+                g.FillEllipse(b, -0.9f, cy - 0.9f, 1.8f, 1.8f);
+
+            g.Restore(save);
+        }
+
+        private static void DrawClockHand(Graphics g, float cy, float deg, float len, float width, int alpha)
+        {
+            double rad = (deg - 90.0) * Math.PI / 180.0;
+            using (var pen = new Pen(Theme.Fg(alpha), width))
+            {
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                g.DrawLine(pen, 0f, cy,
+                    (float)(Math.Cos(rad) * len), cy + (float)(Math.Sin(rad) * len));
+            }
+        }
+
+#if !NOWHALE
+        /// <summary>
+        /// 卡片顶边上的小鲸鱼娘：脚底踩在卡片上边缘（y = TopPad），走在这条 196px 的“地面”上。
+        /// 素材是像素画，用双三次缩放比最近邻更稳（原图已做过一次非整数倍缩小）。
+        /// </summary>
+        private static void DrawWhale(Graphics g, UiState st)
+        {
+            Bitmap bmp = WhaleSprite.Sheet;
+            if (bmp == null) return;
+
+            int f = st.WhaleFrame;
+            if (f < 0) f = 0;
+            if (f >= WhaleSprite.FrameCount) f = WhaleSprite.FrameCount - 1;
+
+            // 想出大小只改这一个数（上限 TopPad，超了会被窗口顶边裁掉）
+            const float DrawH = 54f;
+            float k = DrawH / WhaleSprite.FrameH;
+            float fw = WhaleSprite.FrameW * k;
+
+            var src = new Rectangle(f * WhaleSprite.FrameW, 0, WhaleSprite.FrameW, WhaleSprite.FrameH);
+
+            // 朝向：素材只有正面，靠水平镜像让"脸朝着走的方向"。
+            // 这里直接量化成 ±1：15fps 下把 100ms 的压缩过渡画出来就是一条细线，
+            // 反而像掉帧；正面构图左右翻转本身几乎看不出，硬切最干净。
+            float face = st.WhaleFaceX < 0f ? -1f : 1f;
+
+            var old = g.InterpolationMode;
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            GraphicsState gs = g.Save();          // 一并记住插值模式，Restore 时自动还原
+            try
+            {
+                // 锚点放在脚底中心：缩放/镜像都不会让脚离开卡片顶边
+                g.TranslateTransform(st.WhaleX, TopPad + st.WhaleBob);
+                g.ScaleTransform(face, 1f);
+                g.DrawImage(bmp, new RectangleF(-fw * 0.5f, -DrawH, fw, DrawH), src, GraphicsUnit.Pixel);
+            }
+            finally { g.Restore(gs); g.InterpolationMode = old; }
+        }
+#endif
+
         public static void Draw(Graphics g, UiState st)
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -268,44 +389,49 @@ namespace NvHud
             g.ScaleTransform(st.Scale, st.Scale);
             EnsureArt();
 
-            SizeF sz = LogicalSize(st.Hover);
+            // 顶边小人画在卡片之外，必须在卡片裁剪之前画
+#if !NOWHALE
+            DrawWhale(g, st);
+#endif
+
+            // 之后所有卡片绘制整体下移 TopPad：原有坐标一个都不用改
+            g.TranslateTransform(0f, TopPad);
+
+            SizeF sz = CardSize(st.Hover);
             float w = sz.Width, h = sz.Height;
-            float r = st.Hover ? 16f : 14f;
+            float r = 18f;
 
             bool off = st.Offline;
             bool mute = st.Muted;
-            bool hover = st.Hover;
 
             // 卡片底
             using (var cp = Round(0, 0, w, h, r))
             {
-                using (var fill = new SolidBrush(off ? C(24, 24, 28, 235) : ((st.ShowControls ? C(33, 33, 40, 246) : C(28, 28, 34, 244)))))
+                using (var fill = new SolidBrush(off ? Theme.CardBgOffline : Theme.CardBg))
                     g.FillPath(fill, cp);
 
 
-                // 顶部高光
-                using (var hp = Round(0, 0, w, h * 0.6f, r))
-                using (var hg = Grad(0, 0, 0, h * 0.6f, C(255, 255, 255, 14), C(255, 255, 255, 0)))
+                // 极轻的高光与描边：保持挂件的轮廓，不做发亮玻璃效果
+                using (var hp = Round(0, 0, w, h * 0.55f, r))
+                using (var hg = Grad(0, 0, 0, h * 0.55f, Theme.CardGloss, Color.FromArgb(0, 255, 255, 255)))
                     g.FillPath(hg, hp);
 
-                // 内描边
-                using (var pen = new Pen(C(255, 255, 255, 26), 0.8f))
+                using (var pen = new Pen(Theme.CardStroke, 1f))
                     g.DrawPath(pen, cp);
             }
 
             // ---- 频谱背景（画在内容下面）----
             if (st.Spectrum != null && SpectrumAlpha > 0.01f && !off)
             {
-                DrawSpectrum(g, st.Spectrum, h);
+                DrawSpectrum(g, st.Spectrum, h, st.ShowControls);
             }
 
-            float numCy, iconD, numPt;
-            if (hover) { numCy = h * IconCyRatio; iconD = 40f; numPt = 22f; }
-            else { numCy = h * 0.42f; iconD = 28f; numPt = 17f; }
+            float numCy = h * IconCyRatio;
+            float iconD = 44f;
 
-            // 图标位：有内置画作时用圆形头像，否则退回渐变圆 + 音符
-            float iconX = 9f;
-            float iconY = numCy - iconD / 2f;
+            // 封面是挂件的视觉锚点；常态与悬停保持固定位置，避免布局跳动
+            float iconX = 10f;
+            float iconY = 26f;
             Bitmap face = Artwork.Current;
             if (face != null)
             {
@@ -327,10 +453,10 @@ namespace NvHud
                     }
                     if (off)
                     {
-                        using (var dim = new SolidBrush(C(40, 40, 46, 190))) g.FillPath(dim, ip2);
+                        using (var dim = new SolidBrush(Theme.AvatarDim)) g.FillPath(dim, ip2);
                     }
                     g.Restore(st1);
-                    using (var pen = new Pen(C(255, 255, 255, 70), 0.8f)) g.DrawPath(pen, ip2);
+                    using (var pen = new Pen(Theme.AvatarStroke, 0.7f)) g.DrawPath(pen, ip2);
                 }
             }
             else
@@ -340,14 +466,14 @@ namespace NvHud
                     AddRoundedRect(ip, iconX, iconY, iconD, iconD, iconD * AvatarRadiusRatio);
                     if (off)
                     {
-                        using (var b = new SolidBrush(C(52, 52, 60, 255))) g.FillPath(b, ip);
+                        using (var b = new SolidBrush(Theme.AvatarPlaceholder)) g.FillPath(b, ip);
                     }
                     else
                     {
                         using (var b = Grad(iconX, iconY, iconX + iconD, iconY + iconD, C(255, 70, 105, 255), C(255, 143, 92, 255)))
                             g.FillPath(b, ip);
                     }
-                    using (var pen = new Pen(C(255, 255, 255, 46), 0.7f)) g.DrawPath(pen, ip);
+                    using (var pen = new Pen(Theme.Fg(46), 0.7f)) g.DrawPath(pen, ip);
                 }
                 using (var fNote = new Font("Segoe UI Symbol", iconD * 0.50f, FontStyle.Regular, GraphicsUnit.Pixel))
                 using (var bNote = new SolidBrush(C(255, 255, 255, 242)))
@@ -360,102 +486,105 @@ namespace NvHud
 
             float cx = iconX + iconD + 9f;
 
-            // 悬停态的曲目名（ClearType，与参数面板/右键菜单一致；超长时可滚动）
-            float tvX = 12f, tvY = 10f, tvW = w - 12f - 52f, tvH = 16f;   // 从图标正上方开始，把那块区域也用上
-            if (hover)
+            // 曲目名：挂件主角，任何状态下都常驻（卡片本身永久展开，不再区分常态/悬停），超长时滚动
+            float tvX = 12f, tvY = 10f, tvW = TitleViewportW, tvH = 16f;
+            using (var fT = new Font(TitleFontName, TitleFontPx, FontStyle.Regular, GraphicsUnit.Pixel))
+            using (var bT = new SolidBrush(Theme.Title))
             {
-                TextRenderingHint oldHint = g.TextRenderingHint;
-                g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-                using (var fT = new Font(TitleFontName, TitleFontPx, FontStyle.Regular, GraphicsUnit.Pixel))
-                using (var bT = new SolidBrush(C(232, 234, 242, 255)))
+                var viewport = new RectangleF(tvX, tvY, tvW, tvH);
+                if (st.TitleScrolls)
                 {
-                    var viewport = new RectangleF(tvX, tvY, tvW, tvH);
-                    if (st.TitleScrolls)
+                    // 滚动中：裁剪到视口，整段文字按偏移左移
+                    var oldClip = g.Clip;
+                    g.SetClip(viewport, CombineMode.Intersect);
+                    using (var sf2 = Near())
+                        g.DrawString(st.Title, fT, bT, new RectangleF(tvX - st.TitleOffset, tvY, 2000f, tvH), sf2);
+                    g.Clip = oldClip;
+                }
+                else
+                {
+                    using (var sf = new StringFormat())
                     {
-                        // 滚动中：裁剪到视口，整段文字按偏移左移
-                        var oldClip = g.Clip;
-                        g.SetClip(viewport, CombineMode.Intersect);
-                        using (var sf2 = Near())
-                            g.DrawString(st.Title, fT, bT, new RectangleF(tvX - st.TitleOffset, tvY, 2000f, tvH), sf2);
-                        g.Clip = oldClip;
-                    }
-                    else
-                    {
-                        using (var sf = new StringFormat())
-                        {
-                            sf.Alignment = StringAlignment.Near;
-                            sf.LineAlignment = StringAlignment.Center;
-                            sf.FormatFlags = StringFormatFlags.NoWrap;
-                            sf.Trimming = StringTrimming.EllipsisCharacter;
-                            g.DrawString(st.Title, fT, bT, viewport, sf);
-                        }
+                        sf.Alignment = StringAlignment.Near;
+                        sf.LineAlignment = StringAlignment.Center;
+                        sf.FormatFlags = StringFormatFlags.NoWrap;
+                        sf.Trimming = StringTrimming.None;   // 不用省略号：右端交给渐隐
+                        g.DrawString(st.Title, fT, bT, viewport, sf);
                     }
                 }
-                g.TextRenderingHint = oldHint;
             }
 
-            // 主体文字
+            // 右端渐隐：用卡片自身底色做一层水平渐变，盖住标题最后 22px，避免硬切
+            const float fadeW = 22f;
+            Color cb = Theme.CardBg;
+            var fadeRect = new RectangleF(tvX + tvW - fadeW, tvY - 1f, fadeW, tvH + 2f);
+            using (var fb = new LinearGradientBrush(fadeRect,
+                Color.FromArgb(0, cb.R, cb.G, cb.B),
+                Color.FromArgb(cb.A, cb.R, cb.G, cb.B),
+                LinearGradientMode.Horizontal))
+                g.FillRectangle(fb, fadeRect);
+
+            // 异常状态优先；否则音量与 dB 常驻在标题行右侧，不压下面的频谱
             if (mute)
             {
                 using (var fM = new Font("Microsoft YaHei UI", 15.5f, FontStyle.Bold, GraphicsUnit.Pixel))
-                using (var bM = new SolidBrush(C(255, 110, 110, 255)))
+                using (var bM = new SolidBrush(Theme.MuteText))
                 using (var sf = Near())
-                    g.DrawString("静音", fM, bM, new RectangleF(cx, numCy - 12f, 100f, 24f), sf);
+                    g.DrawString("已静音", fM, bM, new RectangleF(cx, numCy - 12f, 112f, 24f), sf);
             }
             else if (off)
             {
                 using (var fO = new Font("Microsoft YaHei UI", 13.5f, FontStyle.Bold, GraphicsUnit.Pixel))
-                using (var bO = new SolidBrush(C(126, 128, 140, 255)))
+                using (var bO = new SolidBrush(Theme.OfflineText))
                 using (var sf = Near())
-                    g.DrawString("未连接", fO, bO, new RectangleF(cx, numCy - 11f, 100f, 22f), sf);
+                    g.DrawString("未连接", fO, bO, new RectangleF(cx, numCy - 11f, 112f, 22f), sf);
             }
             else
             {
                 int pct = st.Volume;
                 if (pct < 0) pct = 0;
                 if (pct > 100) pct = 100;
-                string num = pct.ToString();
 
-                float numPx = numPt * 1.28f;
-                using (var fN = new Font("Segoe UI", numPx, FontStyle.Bold, GraphicsUnit.Pixel))
-                using (var bN = new SolidBrush(C(246, 246, 250, 253)))
-                using (var sf = Near())
+                // 悬停时齿轮/关闭占用右上角，读数整体左移让位；dB 只在常态显示，避免挤掉歌名
+                float rightEdge = st.ShowControls ? 138f : 184f;
+                bool showDb = !st.ShowControls && !float.IsNaN(st.LoudDb);
+
+                using (var fP = new Font("Segoe UI", 11f, FontStyle.Bold, GraphicsUnit.Pixel))
+                using (var fD = new Font("Segoe UI", 9.5f, FontStyle.Regular, GraphicsUnit.Pixel))
+                using (var sfR = new StringFormat())
                 {
-                    g.DrawString(num, fN, bN, new RectangleF(cx, numCy - numPx, 120f, numPx * 2f), sf);
-                    SizeF nsz = g.MeasureString(num, fN);
-                    using (var fP = new Font("Segoe UI", numPx * 0.40f, FontStyle.Bold, GraphicsUnit.Pixel))
-                    using (var bP = new SolidBrush(C(198, 201, 212, 255)))
-                    using (var sf2 = Near())
+                    sfR.Alignment = StringAlignment.Far;
+                    sfR.LineAlignment = StringAlignment.Center;
+                    sfR.FormatFlags = StringFormatFlags.NoWrap;
+
+                    float boxY = tvY - 1f, boxH = tvH + 2f;
+                    float edge = rightEdge;
+
+                    if (showDb)
                     {
-                        float pctCy = numCy + numPx * 0.26f;
-                        g.DrawString("%", fP, bP, new RectangleF(cx + nsz.Width - 4f, pctCy - numPx * 0.5f, 40f, numPx), sf2);
+                        string dbText = st.LoudDb.ToString("0.0") + " dB";
+                        SizeF ds = g.MeasureString(dbText, fD);
+                        using (var bD = new SolidBrush(Theme.DimSoft))
+                            g.DrawString(dbText, fD, bD, new RectangleF(edge - ds.Width, boxY, ds.Width, boxH), sfR);
+                        edge -= ds.Width;
                     }
+
+                    string pctText = pct + "%";
+                    SizeF ps = g.MeasureString(pctText, fP);
+                    using (var bP = new SolidBrush(Theme.Dim))
+                        g.DrawString(pctText, fP, bP, new RectangleF(edge - ps.Width, boxY, ps.Width, boxH), sfR);
                 }
             }
 
-            float bx_ = cx + 34f;   // dB 文本的左边界（避开百分比）
-
-            // 当前曲目响度（右侧小字）
-            if (!off && !float.IsNaN(st.LoudDb))
-            {
-                float dbPx = st.Hover ? 13.5f : 12f;
-                using (var fDb = new Font("Segoe UI", dbPx, FontStyle.Regular, GraphicsUnit.Pixel))
-                using (var bDb = new SolidBrush(C(198, 201, 212, 255)))
-                using (var sfDb = new StringFormat())
-                {
-                    sfDb.Alignment = StringAlignment.Far;
-                    sfDb.LineAlignment = StringAlignment.Center;
-                    string txt = st.LoudDb.ToString("0.0") + " dB";
-                    g.DrawString(txt, fDb, bDb, new RectangleF(bx_, numCy - dbPx, w - bx_ - 12f, dbPx * 2f), sfDb);
-                }
-            }
+            // 吊钟：画在频谱之上、悬停控件之下
+            DrawClock(g, st.ClockAngle, off);
 
             // 参数按钮（三条滑杆），只在悬停时出现，位于 × 左侧
             if (st.ShowControls)   // 离线时也要能开菜单 / 退出，否则窗口关不掉
             {
                 float gx = w - 40f, gy = 17f;
                 int ga = 190;
-                using (var pen = new Pen(C(255, 255, 255, ga), 1.1f))
+                using (var pen = new Pen(Theme.Fg(ga), 1.1f))
                 {
                     pen.StartCap = LineCap.Round;
                     pen.EndCap = LineCap.Round;
@@ -463,7 +592,7 @@ namespace NvHud
                     g.DrawLine(pen, gx - 6f, gy, gx + 6f, gy);
                     g.DrawLine(pen, gx - 6f, gy + 4.5f, gx + 6f, gy + 4.5f);
                 }
-                using (var dot = new SolidBrush(C(255, 255, 255, ga)))
+                using (var dot = new SolidBrush(Theme.Fg(ga)))
                 {
                     g.FillEllipse(dot, gx - 2f, gy - 6.3f, 3.4f, 3.4f);
                     g.FillEllipse(dot, gx + 2.6f, gy - 1.8f, 3.4f, 3.4f);
@@ -477,7 +606,7 @@ namespace NvHud
                 float ccy = 17f;
                 float half = 5.2f;
                 int alpha = 210;
-                using (var pen = new Pen(C(255, 255, 255, alpha), 1.15f))
+                using (var pen = new Pen(Theme.Fg(alpha), 1.15f))
                 {
                     pen.StartCap = LineCap.Round;
                     pen.EndCap = LineCap.Round;

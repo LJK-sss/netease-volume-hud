@@ -4,11 +4,27 @@
 
 A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by default) inside a loudness band you define — per song, with memory.
 
-![LevelBand](screenshots/card-hover.png)
+![LevelBand](screenshots/card.png)
 
 ---
 
 ## 中文
+
+### 两个版本
+
+| | `LevelBand.exe`（完整版） | `LevelBand-lite.exe`（轻量版） |
+|---|---|---|
+| 体积 | 443 KB | **289 KB** |
+| 窗口 | 196 × 130 | **196 × 76** |
+| 顶边小人 | 有（31 帧 / 6 个动作） | 完全没有 |
+| 挂钟 / 频谱 / 歌名滚动 / 深浅主题 | 有 | 有 |
+| 音量与 dB 显示 | 有 | 有 |
+
+两版功能完全一致，只差顶部那个装饰用的角色。轻量版省下的 154 KB 全部是那张精灵图。
+
+| 完整版 | 轻量版 |
+|---|---|
+| ![](screenshots/card.png) | ![](screenshots/lite.png) |
 
 ### 为什么做这个
 
@@ -31,16 +47,6 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 | 把响度维持在**目标区间**内（可升可降） | 不会把所有歌压成一样响 |
 | 局部爆音用限幅器临时压一下 | 不注入进程、不装驱动、不联网 |
 | 记不住的时候自己学 | 不需要管理员权限 |
-
-### 截图
-
-| 常态（一直显示曲目名） | 悬停（多出菜单和关闭按钮） |
-|---|---|
-| ![](screenshots/card.png) | ![](screenshots/card-hover.png) |
-
-| 参数面板 |
-|---|
-| ![](screenshots/panel.png) |
 
 ### 工作原理
 
@@ -76,13 +82,24 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 
 `songs.ini` 每行 `源响度|歌名`。因为存的是「这首歌本身多响」，**改任何参数都不需要重新学习**。
 
+### 界面与装饰
+
+- **常驻歌名**：长标题一直慢速滚动，右端渐隐，不会硬切
+- **音量数字 + dB**：跟着频谱一起显示，不遮挡
+- **频谱**：方格或连续柱两种样式，可调浓度
+- **挂钟**：频谱区右上方，18px，会左右摆动，指针走真实时间
+- **深浅主题**：一次切换整窗配色
+- **顶边小人**（仅完整版）：站在卡片上边缘，安静时随机哼歌 / 打哈欠 / 打盹 / 被吓一跳（切歌触发），会自己走到别的位置，转身时镜像
+
 ### 安装 / 运行
 
-1. 从 Releases 下载 `LevelBand.exe`
+1. 从 [Releases](../../releases) 或 `dist/` 下载 `LevelBand.exe`（或 `LevelBand-lite.exe`）
 2. 双击运行（不需要安装）
 3. 网易云开始播放后，小条会自动绑定它的音频会话
 
 要求：Windows 10/11 x64（.NET Framework 4.8 系统自带）
+
+> exe 带了自签名证书，但**新文件名在 SmartScreen 那里没有声誉记录**，首次运行可能提示"Windows 已保护你的电脑"。点「更多信息 → 仍要运行」即可，之后不会再来。也可以直接用 `build.ps1` 自己编译，完全绕开签名问题。
 
 ### 操作
 
@@ -108,6 +125,8 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 
 > 经验：**限幅余量应比容差大 2~3 dB**，否则限幅器会落进区间内部，导致持续压制。
 
+界面相关的几项在 `%APPDATA%\LevelBand\config.ini` 里：`theme`（0 深色 / 1 浅色）、`spectrum`（频谱浓度 0~50）、`spectrumGrid`（1 方格 / 0 连续柱）、`scale`（缩放）、`opacity`（不透明度）。
+
 ### 数据文件
 
 ```
@@ -115,6 +134,7 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
     config.ini    参数、窗口位置
     log.txt       运行日志（启动清空；单次运行超 1 MB 自动清空）
     songs.ini     按歌缓存
+artwork\          头像图（放在 exe 同级目录，按修改时间轮播）
 ```
 
 删掉 `songs.ini` 即可清空所有学习结果。
@@ -122,11 +142,15 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 ### 自己编译
 
 ``` powershell
-.\build.ps1          # 编译到 dist\LevelBand.exe
-.\build.ps1 -Run     # 编译并运行
+.\build.ps1            # 完整版 -> dist\LevelBand.exe
+.\build.ps1 -Lite      # 轻量版 -> dist\LevelBand-lite.exe
+.\build.ps1 -All       # 两个都编
+.\build.ps1 -Run       # 编译完直接运行
 ```
 
 只需要 Windows 自带的 `csc.exe`（.NET Framework 4.x），没有任何第三方依赖。
+
+两种版本用同一份源码：轻量版通过 `-Lite` 排除 `WhaleSprite.cs` 并定义 `NOWHALE` 宏，窗口高度自动退回 196×76。
 
 ### 已知限制
 
@@ -136,7 +160,7 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 | 音量不能超过 100% | 会话推子物理上限 |
 | 目前只支持网易云 | 进程名写死为 `cloudmusic.exe`（想换播放器改 `Program.cs` 里的 `ProccessName`） |
 | 响度是 RMS 的 P80，不是标准 LUFS | 同一读数下「响」和「吵」不完全等价 |
-| 无签名 exe | 可能被杀软提示，可自行编译 |
+| 无正式代码签名 | 可能被杀软提示，可自行编译 |
 
 ### 隐私
 
@@ -146,13 +170,17 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 
 ### 免责
 
-本项目与网易公司无关，未获官方授权。它只调用 Windows 官方的 WASAPI 接口调整**本机**指定程序的音会话量，不修改、不注入、不逆向任何客户端。
+本项目与网易公司无关，未获官方授权。它只调用 Windows 官方的 WASAPI 接口调整**本机**指定程序的音频会话音量，不修改、不注入、不逆向任何客户端。
 
 ---
 
 ## English
 
 A tiny HUD that keeps **one app's audio** inside a loudness band you define — per song, with memory.
+
+### Two builds
+
+`LevelBand.exe` (443 KB, 196×130) carries a small animated character sitting on the card's top edge; `LevelBand-lite.exe` (289 KB, 196×76) is exactly the same HUD without it. Everything else — clock, spectrum, marquee title, light/dark themes, loudness display — is identical.
 
 ### Why
 
@@ -170,24 +198,26 @@ LevelBand fixes exactly that: **one app, per-song memory, and no action at all w
 
 ### Run
 
-Download `LevelBand.exe` from Releases and double-click. Requires Windows 10/11 x64 with .NET Framework 4.8 (preinstalled). The window is always-on-top but only re-asserts itself every 15 seconds, so full-screen screen-capture tools (WeChat/QQ) are not disturbed.
+Download `LevelBand.exe` from `dist/` or Releases and double-click. Requires Windows 10/11 x64 with .NET Framework 4.8 (preinstalled). The window is always-on-top but only re-asserts itself every 15 seconds, so full-screen screen-capture tools (WeChat/QQ) are not disturbed.
 
 Controls: drag to move, click/drag only the bottom bar strip to set volume, **Ctrl + ↑/↓** while hovering for ±2%, middle-click to mute, left-click the menu icon for settings, right-click it for the quick menu. Long track titles scroll slowly, all the time.
 
 ### Build
 
 ``` powershell
-.\build.ps1
+.\build.ps1            # full build  -> dist\LevelBand.exe
+.\build.ps1 -Lite      # lite build  -> dist\LevelBand-lite.exe
+.\build.ps1 -All       # both
 ```
 
-Only needs the `csc.exe` shipped with .NET Framework 4.x. No third-party dependencies.
+Only needs the `csc.exe` shipped with .NET Framework 4.x. No third-party dependencies. The lite build simply excludes `WhaleSprite.cs` and defines `NOWHALE`.
 
 ### Notes & limitations
 
 - Currently hardcoded to Netease Cloud Music (`cloudmusic.exe`); change `ProccessName` in `Program.cs` for other players.
 - Cannot draw over exclusive-fullscreen games.
 - Loudness is RMS P80, not BS.1770 LUFS.
-- Unsigned binary — some antivirus tools may warn. Build it yourself if you prefer.
+- Self-signed binary — SmartScreen may warn on first run of a given file name. Build it yourself if you prefer.
 
 ### Privacy
 
@@ -199,6 +229,14 @@ Not affiliated with NetEase. Uses only the public WASAPI session APIs on the loc
 
 ---
 
-## License
+## 授权 / License
 
-MIT — see [LICENSE](LICENSE).
+**代码**：MIT — see [LICENSE](LICENSE).
+
+**顶边小人（大肥鱼）的素材**：来自开源桌宠项目 [PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet) 的原始动画，按 **CC BY-NC-SA 4.0** 使用：
+
+- **署名**：DeepSeek「大肥鱼」（鲸鱼娘）为社区二创形象，**非 DeepSeek 官方形象**。原型「溟月」出自 B 站 [@上善无形]，DeepSeek 版（女仆鲸鱼娘）设计出自 B 站 [@ZipZipPipe]。
+- **非商业**：不得用于任何形式的商业化。
+- **相同方式共享**：基于该形象的二创需以相同协议发布。
+
+**只想要代码、不想要这个形象**：直接用 `-Lite` 编译，或下载 `LevelBand-lite.exe` —— 轻量版二进制里完全不含该素材。

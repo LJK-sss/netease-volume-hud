@@ -6,7 +6,7 @@ using System.Windows.Forms;
 namespace NvHud
 {
     /// <summary>
-    /// 自绘右键菜单：与小窗同款玻璃拟态，只保留最常用的几项。
+    /// 自绘右键菜单：与小窗同款材质，只保留最常用的几项。
     /// 数值项用 ◀ ▶ 就地调节，避免二级菜单。
     /// </summary>
     internal sealed class MenuPanel : Form
@@ -20,24 +20,13 @@ namespace NvHud
         public const float ROW_H = 30f;
         public const float PAD_Y = 7f;
         public const float SEP_H = 10f;
-        public const int ACTION_ROWS = 8;      // 0静音 1自动增益 2界面大小 3不透明度 4开机自启 5频谱浓度 6频谱样式 7退出
+        // 0自动增益 1界面大小 2不透明度 3频谱浓度 4频谱样式 5界面风格 6退出
+        public const int ACTION_ROWS = 7;
 
 
+        public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; } }
 
-
-
-
-
-
-public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; } }
-
-/// <summary>预设档位，用箭头循环切换。</summary>
-
-
-
-        public bool Muted;
         public bool AutoGainOn = true;
-        public bool AutoStartOn;
         public float ScaleValue = 1f;
         public float OpacityValue = 0.88f;
 
@@ -47,14 +36,13 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
         public int HoverRow = -1;
         public int HoverZone;   // 0 无, 1 左箭头, 2 右箭头, 3 整行
 
-        public event Action MuteToggle;
         public event Action AutoGainToggle;
         public event Action<int> ScaleStep;
         public event Action<int> OpacityStep;
-        public event Action AutoStartToggle;
 
         public event Action<int> SpectrumStep;
         public event Action SpectrumStyleToggle;
+        public event Action ThemeToggle;
 
         public event Action ExitRequested;
 
@@ -199,11 +187,11 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
             return p;
         }
 
-        /// <summary>第 i 行（0..5）的逻辑 y；第 5 行在分隔线之后。</summary>
+        /// <summary>第 i 行的逻辑 y；最后一行在分隔线之后。</summary>
         private float RowY(int i)
         {
-            if (i <= 6) return PAD_Y + i * ROW_H;
-            return PAD_Y + 7 * ROW_H + SEP_H;
+            if (i <= ACTION_ROWS - 2) return PAD_Y + i * ROW_H;
+            return PAD_Y + (ACTION_ROWS - 1) * ROW_H + SEP_H;
         }
 
         private void Draw(Graphics g, float s)
@@ -215,13 +203,13 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
             float w = W_LOGICAL;
             float h = H_LOGICAL;
 
-            // 玻璃底板
+            // 底板
             using (var path = Round(0, 0, w, h, 12f))
             {
                 using (var bg = new LinearGradientBrush(new RectangleF(0, 0, w, h),
-                    C(34, 34, 40, 246), C(24, 24, 29, 246), LinearGradientMode.Vertical))
+                    Theme.PanelTop, Theme.PanelBottom, LinearGradientMode.Vertical))
                     g.FillPath(bg, path);
-                using (var pen = new Pen(C(255, 255, 255, 30), 0.9f))
+                using (var pen = new Pen(Theme.PanelStroke, 0.9f))
                     g.DrawPath(pen, path);
             }
 
@@ -235,73 +223,69 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
                 if (hover)
                 {
                     using (var hp = Round(4, y + 1, w - 8, ROW_H - 2, 7f))
-                    using (var hb = new SolidBrush(C(255, 255, 255, 14)))
+                    using (var hb = new SolidBrush(Theme.Fg(14)))
                         g.FillPath(hb, hp);
                 }
 
                 if (i == 0)
                 {
-                    DrawText(g, Muted ? "取消静音" : "静音", y);
-                }
-                else if (i == 1)
-                {
                     DrawText(g, "自动增益", y);
                     DrawPill(g, w, y, AutoGainOn);
                 }
-                else if (i == 2)
+                else if (i == 1)
                 {
                     DrawText(g, "界面大小", y);
                     DrawValue(g, w, y, ((int)Math.Round(ScaleValue * 100)).ToString() + "%");
                     DrawChevron(g, w - 40, y + ROW_H / 2f, false, hover && HoverZone == 1);
                     DrawChevron(g, w - 18, y + ROW_H / 2f, true, hover && HoverZone == 2);
                 }
-                else if (i == 3)
+                else if (i == 2)
                 {
                     DrawText(g, "不透明度", y);
                     DrawValue(g, w, y, ((int)Math.Round(OpacityValue * 100)).ToString() + "%");
                     DrawChevron(g, w - 40, y + ROW_H / 2f, false, hover && HoverZone == 1);
                     DrawChevron(g, w - 18, y + ROW_H / 2f, true, hover && HoverZone == 2);
                 }
-                else if (i == 4)
-                {
-                    DrawText(g, "开机自启", y);
-                    DrawPill(g, w, y, AutoStartOn);
-                }
-                else if (i == 5)
+                else if (i == 3)
                 {
                     DrawText(g, "频谱浓度", y);
                     DrawValue(g, w, y, SpectrumPct + "%");
                     DrawChevron(g, w - 40, y + ROW_H / 2f, false, hover && HoverZone == 1);
                     DrawChevron(g, w - 18, y + ROW_H / 2f, true, hover && HoverZone == 2);
                 }
-                else if (i == 6)
+                else if (i == 4)
                 {
                     DrawText(g, "频谱样式", y);
                     DrawValue(g, w, y, SpectrumGrid ? "方格" : "柱状");
                 }
+                else if (i == 5)
+                {
+                    DrawText(g, "界面风格", y);
+                    DrawValue(g, w, y, Theme.Light ? "浅色" : "深色");
+                }
                 else
                 {
-                    using (var b = new SolidBrush(hover ? C(255, 120, 130, 255) : C(226, 120, 128, 235)))
+                    using (var b = new SolidBrush(hover ? Theme.Accent : Theme.AccentSoft))
                         g.DrawString("退出", _fLabel, b, new RectangleF(14, y + 2, w - 28, ROW_H - 4), _sfL);
                 }
             }
 
             // 分隔线
-            float sy = RowY(7) - SEP_H / 2f;
-            using (var pen = new Pen(C(255, 255, 255, 26), 0.8f))
+            float sy = RowY(ACTION_ROWS - 1) - SEP_H / 2f;
+            using (var pen = new Pen(Theme.Fg(26), 0.8f))
                 g.DrawLine(pen, 12, sy, w - 12, sy);
         }
 
 
         private void DrawText(Graphics g, string text, float y)
         {
-            using (var b = new SolidBrush(C(232, 234, 242, 255)))
+            using (var b = new SolidBrush(Theme.Title))
                 g.DrawString(text, _fLabel, b, new RectangleF(14, y + 2, W_LOGICAL - 28, ROW_H - 4), _sfL);
         }
 
         private void DrawValue(Graphics g, float w, float y, string text)
         {
-            using (var b = new SolidBrush(C(246, 246, 250, 255)))
+            using (var b = new SolidBrush(Theme.Value))
                 g.DrawString(text, _fValue, b, new RectangleF(w - 112, y + 2, 56, ROW_H - 4), _sfR);
         }
 
@@ -310,18 +294,18 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
             float pw = 34f, ph = 17f;
             float px = w - 16 - pw, py = y + (ROW_H - ph) / 2f;
             using (var pp = Round(px, py, pw, ph, ph / 2f))
-            using (var pb = new SolidBrush(on ? C(255, 74, 105, 235) : C(70, 70, 80, 255)))
+            using (var pb = new SolidBrush(on ? C(255, 74, 105, 235) : Theme.PillOff))
                 g.FillPath(pb, pp);
             float knob = ph - 4f;
             float kx = on ? (px + pw - knob - 2f) : (px + 2f);
-            using (var kb = new SolidBrush(C(255, 255, 255, 245)))
+            using (var kb = new SolidBrush(Theme.Knob))
                 g.FillEllipse(kb, kx, py + 2f, knob, knob);
         }
 
         private static void DrawChevron(Graphics g, float cx, float cy, bool right, bool hot)
         {
             int a = hot ? 235 : 150;
-            using (var pen = new Pen(Color.FromArgb(a, 255, 255, 255), 1.4f))
+            using (var pen = new Pen(Theme.Fg(a), 1.4f))
             {
                 pen.StartCap = LineCap.Round;
                 pen.EndCap = LineCap.Round;
@@ -350,7 +334,7 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
             if (row < 0) return 0;
             float s = DpiScale;
             float lx = p.X / s;
-            if (row == 2 || row == 3 || row == 5)
+            if (row == 1 || row == 2 || row == 3)
             {
                 if (lx >= W_LOGICAL - 48 && lx < W_LOGICAL - 28) return 1;
                 if (lx >= W_LOGICAL - 28) return 2;
@@ -383,7 +367,7 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
             if (row < 0) return;
             int zone = ZoneAt(e.Location, row);
 
-            if (row == 7)
+            if (row == ACTION_ROWS - 1)
             {
                 if (ExitRequested != null) ExitRequested();
                 return;
@@ -392,28 +376,25 @@ public float H_LOGICAL { get { return PAD_Y * 2f + ROW_H * ACTION_ROWS + SEP_H; 
             switch (row)
             {
                 case 0:
-                    if (MuteToggle != null) MuteToggle();
-                    break;
-                case 1:
                     if (AutoGainToggle != null) AutoGainToggle();
                     break;
-                case 2:
+                case 1:
                     if (zone == 1 && ScaleStep != null) ScaleStep(-1);
                     else if (zone == 2 && ScaleStep != null) ScaleStep(1);
                     break;
-                case 3:
+                case 2:
                     if (zone == 1 && OpacityStep != null) OpacityStep(-1);
                     else if (zone == 2 && OpacityStep != null) OpacityStep(1);
                     break;
-                case 4:
-                    if (AutoStartToggle != null) AutoStartToggle();
+                case 3:
+                    if (zone == 1 && SpectrumStep != null) SpectrumStep(-5);
+                    else if (zone == 2 && SpectrumStep != null) SpectrumStep(5);
                     break;
-                case 6:
+                case 4:
                     if (SpectrumStyleToggle != null) SpectrumStyleToggle();
                     break;
                 case 5:
-                    if (zone == 1 && SpectrumStep != null) SpectrumStep(-5);
-                    else if (zone == 2 && SpectrumStep != null) SpectrumStep(5);
+                    if (ThemeToggle != null) ThemeToggle();
                     break;
             }
             Render();

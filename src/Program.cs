@@ -100,6 +100,7 @@ namespace NvHud
         public void Start()
         {
             _cfg = Config.Load();
+            Theme.Light = _cfg.ThemeStyle == 1;
 
             _gain = new AutoGain();
             _gain.TargetDb = _cfg.TargetDb;
@@ -283,7 +284,7 @@ namespace NvHud
             int w = _overlay.Width;
             // 纵向按"展开后的高度"预留，避免悬停展开时超出屏幕底部
             float s2 = (float)w / Renderer.W_NORMAL;
-            int hHover = (int)Math.Round(Renderer.H_HOVER * s2);
+            int hHover = (int)Math.Round(Renderer.LogicalSize(true).Height * s2);
             int m = (int)Math.Round(28f * s2);
             int x = p.WorkingArea.Right - w - m;
             int y = p.WorkingArea.Bottom - hHover - m;
@@ -626,6 +627,10 @@ namespace NvHud
                 }
 
                 if (_overlay.TickMarquee()) dirty = true;
+                if (_overlay.TickClock(dirty)) dirty = true;   // 吊钟还在摆 → 也要一帧
+#if !NOWHALE
+                if (_overlay.TickWhale()) dirty = true;        // 顶边小人一直在动 → 每帧都要
+#endif
                 if (dirty) _overlay.Repaint();
             }
             catch { }
@@ -1051,31 +1056,34 @@ namespace NvHud
         {
             _menu = new MenuPanel();
             _menu.Owner = _overlay;   // 同上
-            _menu.MuteToggle += delegate { OnMuteToggle(); RefreshMenu(); };
             _menu.AutoGainToggle += delegate { SetAutoGain(!_cfg.AutoGain); RefreshMenu(); };
             _menu.ScaleStep += delegate(int d) { StepScale(d); RefreshMenu(); };
             _menu.OpacityStep += delegate(int d) { StepOpacity(d); RefreshMenu(); };
-            _menu.AutoStartToggle += delegate
-            {
-                _cfg.AutoStart = !_cfg.AutoStart;
-                ApplyAutoStart(_cfg.AutoStart);
-                _cfg.Save();
-                RefreshMenu();
-            };
             _menu.ExitRequested += delegate { Log.W("退出: 右键菜单里选了退出"); Application.Exit(); };
-            {
-                RefreshMenu();
-            };
             _menu.SpectrumStep += delegate(int d) { SetSpectrum(_cfg.Spectrum + d); RefreshMenu(); };
             _menu.SpectrumStyleToggle += delegate { SetSpectrumGrid(_cfg.SpectrumGrid == 1 ? 0 : 1); };
+            _menu.ThemeToggle += delegate { SetThemeStyle(_cfg.ThemeStyle == 1 ? 0 : 1); };
+        }
+
+        /// <summary>切换深色 / 浅色风格：只影响绘制，不动动画和定时器。</summary>
+        private void SetThemeStyle(int v)
+        {
+            if (v < 0) v = 0;
+            if (v > 1) v = 1;
+            _cfg.ThemeStyle = v;
+            _cfg.Save();
+            Theme.Light = v == 1;
+            if (_menu != null) _menu.Refresh_();
+            if (_panel != null) _panel.Refresh_();
+            if (_picker != null) _picker.Refresh_();
+            _overlay.ForceRender();
+            Log.W("参数: 界面风格 = " + (v == 1 ? "浅色" : "深色"));
         }
 
         private void SyncMenuState()
         {
             if (_menu == null) return;
-            _menu.Muted = _session != null && _session.GetMute();
             _menu.AutoGainOn = _cfg.AutoGain;
-            _menu.AutoStartOn = _cfg.AutoStart;
             _menu.ScaleValue = _cfg.Scale;
             _menu.OpacityValue = _cfg.Opacity;
         }
@@ -1133,20 +1141,8 @@ namespace NvHud
 
         #endregion
 
-        private static void ApplyAutoStart(bool on)
-        {
-            try
-            {
-                using (RegistryKey k = Registry.CurrentUser.OpenSubKey(
-                    @"Software\Microsoft\Windows\CurrentVersion\Run", true))
-                {
-                    if (k == null) return;
-                    if (on) k.SetValue("LevelBand", "\"" + Application.ExecutablePath + "\"");
-                    else k.DeleteValue("LevelBand", false);
-                }
-            }
-            catch { }
-        }
+        // 开机自启已从菜单移除：默认不自启，也不再写注册表。
+        // （config 里的 autoStart 字段保留，只为兼容旧配置文件，不参与启动逻辑。）
 
 
         // 全局热键按用户要求移除：会抢占其它程序的组合键，且用户不常用。

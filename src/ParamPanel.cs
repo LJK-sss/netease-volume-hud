@@ -189,13 +189,13 @@ namespace NvHud
 
             using (var path = Round(0, 0, w, h, 13f))
             {
-                using (var fill = new SolidBrush(C(24, 24, 29, 250)))
+                using (var fill = new SolidBrush(Theme.PanelTop))
                     g.FillPath(fill, path);
                 using (var hg = new LinearGradientBrush(new PointF(0, 0), new PointF(0, h * 0.5f),
-                    C(255, 255, 255, 14), C(255, 255, 255, 0)))
+                    Theme.PanelGloss, Color.FromArgb(0, 255, 255, 255)))
                 using (var hp = Round(0, 0, w, h * 0.5f, 13f))
                     g.FillPath(hg, hp);
-                using (var pen = new Pen(C(255, 255, 255, 30), 0.8f))
+                using (var pen = new Pen(Theme.PanelStroke, 0.8f))
                     g.DrawPath(pen, path);
             }
 
@@ -212,7 +212,7 @@ namespace NvHud
                     if (hoverRow)
                     {
                         using (var hp = Round(4, y + 1, w - 8, ROW_H - 2, 8f))
-                        using (var hb = new SolidBrush(C(255, 255, 255, 12)))
+                        using (var hb = new SolidBrush(Theme.Fg(12)))
                             g.FillPath(hb, hp);
                     }
 
@@ -241,20 +241,20 @@ namespace NvHud
                         float bx = 10f, bw = w - 20f, bh = ROW_H - 10f, by = y + 5f;
                         using (var bp = Round(bx, by, bw, bh, bh / 2f))
                         {
-                            using (var bb = new SolidBrush(hoverRow ? C(255, 255, 255, 26) : C(255, 255, 255, 10)))
+                            using (var bb = new SolidBrush(Theme.Fg(hoverRow ? 26 : 10)))
                                 g.FillPath(bb, bp);
-                            using (var pen = new Pen(C(255, 255, 255, hoverRow ? 46 : 26), 0.8f))
+                            using (var pen = new Pen(Theme.Fg(hoverRow ? 46 : 26), 0.8f))
                                 g.DrawPath(pen, bp);
                         }
-                        using (var tb = new SolidBrush(hoverRow ? C(232, 234, 242, 255) : C(158, 160, 176, 255)))
+                        using (var tb = new SolidBrush(hoverRow ? Theme.Title : Theme.DimSoft))
                             g.DrawString("恢复默认参数", _fBtn, tb, new RectangleF(bx, by, bw, bh), _sfC);
                         continue;
                     }
 
-                    using (var b = new SolidBrush(C(232, 234, 242, 255)))   // 与右键菜单同亮度
+                    using (var b = new SolidBrush(Theme.Title))   // 与右键菜单同亮度
                         g.DrawString(label, _fLabel, b, new RectangleF(14, y + 2, 90, ROW_H - 4), sfL);
 
-                    Color vc = (i == 7 && !AutoGainOn) ? C(140, 142, 156, 255) : C(246, 246, 250, 255);
+                    Color vc = (i == 7 && !AutoGainOn) ? Theme.DimSoft : Theme.Value;
                     RectangleF vr = (i == 6) ? new RectangleF(w - 74, y + 2, 60, ROW_H - 4)
                                             : new RectangleF(w - 132, y + 2, 76, ROW_H - 4);
                     using (var b = new SolidBrush(vc))
@@ -265,7 +265,7 @@ namespace NvHud
                         float tx = 80f, tw = w - tx - 82f, th = 3.4f;
                         float ty = y + ROW_H / 2f - th / 2f;
                         using (var tp = Round(tx, ty, tw, th, th / 2f))
-                        using (var tb = new SolidBrush(C(255, 255, 255, 30)))
+                        using (var tb = new SolidBrush(Theme.Fg(30)))
                             g.FillPath(tb, tp);
                         float fw2 = tw * (Math.Max(0, Math.Min(100, LiveVolume)) / 100f);
                         if (fw2 > 0.5f)
@@ -277,7 +277,7 @@ namespace NvHud
                             using (var kp = new GraphicsPath())
                             {
                                 kp.AddEllipse(tx + fw2 - 4.2f, ty + th / 2f - 4.2f, 8.4f, 8.4f);
-                                using (var kb = new SolidBrush(C(255, 255, 255, 240))) g.FillPath(kb, kp);
+                                using (var kb = new SolidBrush(Theme.Knob)) g.FillPath(kb, kp);
                             }
                         }
                         continue;
@@ -294,11 +294,11 @@ namespace NvHud
                         float pw2 = 34f, ph2 = 17f;
                         float px = w - 16 - pw2, py = y + (ROW_H - ph2) / 2f;
                         using (var pp = Round(px, py, pw2, ph2, ph2 / 2f))
-                        using (var pb = new SolidBrush(AutoGainOn ? C(255, 74, 105, 235) : C(70, 70, 80, 255)))
+                        using (var pb = new SolidBrush(AutoGainOn ? C(255, 74, 105, 235) : Theme.PillOff))
                             g.FillPath(pb, pp);
                         float knob = ph2 - 4f;
                         float kx = AutoGainOn ? (px + pw2 - knob - 2f) : (px + 2f);
-                        using (var kb = new SolidBrush(C(255, 255, 255, 245)))
+                        using (var kb = new SolidBrush(Theme.Knob))
                             g.FillEllipse(kb, kx, py + 2f, knob, knob);
                     }
                 }
@@ -309,7 +309,7 @@ namespace NvHud
         private static void DrawChevron(Graphics g, float cx, float cy, bool right, bool hot)
         {
             int a = hot ? 235 : 150;
-            using (var pen = new Pen(Color.FromArgb(a, 255, 255, 255), 1.4f))
+            using (var pen = new Pen(Theme.Fg(a), 1.4f))
             {
                 pen.StartCap = LineCap.Round;
                 pen.EndCap = LineCap.Round;
