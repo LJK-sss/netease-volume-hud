@@ -46,30 +46,13 @@ namespace NvHud
         public const float IconCyRatio = 0.62f;   // 图标/数字的垂直中心（相对卡片高度）
         public const float AvatarRadiusRatio = 0.30f;   // 头像圆角半径（相对边长）
 
-        // ---- 内置头像（从 exe 资源加载，artwork 文件夹为空时使用）----
-        private static Bitmap _avatar;
-        private static bool _artTried;
-
-
-        /// <summary>内置头像（exe 资源），artwork 文件夹为空时使用。</summary>
-        public static Bitmap EmbeddedAvatar { get { EnsureArt(); return _avatar; } }
+        // ---- 没有自定义头像时，画的是和内嵌图标同款的音符方块（见下方封面绘制分支）----
+        // 早期版本内嵌过一张 240x240 的素描图当兜底，去掉了：一张写实的角色插画
+        // 会让人以为是"某个人的头像"，而占位图应该一眼看出是"这里还没放图"。
 
         /// <summary>频谱柱子浓度 0~1（参数面板可调）。</summary>
         public static float SpectrumAlpha = 0.28f;
         public static bool SpectrumGridMode = true;   // true 方格 / false 连续柱
-
-        private static void EnsureArt()
-        {
-            if (_artTried) return;
-            _artTried = true;
-            try
-            {
-                var asm = typeof(Renderer).Assembly;
-                using (var s = asm.GetManifestResourceStream("avatar.png"))
-                    if (s != null) _avatar = new Bitmap(s);
-            }
-            catch { }
-        }
 
         public const string TitleFontName = "Microsoft YaHei UI";
         public const float TitleFontPx = 12.5f;
@@ -387,7 +370,6 @@ namespace NvHud
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
             g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
             g.ScaleTransform(st.Scale, st.Scale);
-            EnsureArt();
 
             // 顶边小人画在卡片之外，必须在卡片裁剪之前画
 #if !NOWHALE
@@ -475,8 +457,9 @@ namespace NvHud
                     }
                     using (var pen = new Pen(Theme.Fg(46), 0.7f)) g.DrawPath(pen, ip);
                 }
-                using (var fNote = new Font("Segoe UI Symbol", iconD * 0.50f, FontStyle.Regular, GraphicsUnit.Pixel))
-                using (var bNote = new SolidBrush(C(255, 255, 255, 242)))
+                // 音符就是程序图标里那一个；离线时跟着压暗，否则深灰底上一块亮白太跳
+                using (var fNote = new Font("Segoe UI Symbol", iconD * 0.62f, FontStyle.Regular, GraphicsUnit.Pixel))
+                using (var bNote = new SolidBrush(off ? Theme.Fg(72) : C(255, 255, 255, 242)))
                 using (var sf = Center())
                     g.DrawString("\u266A", fNote, bNote, new RectangleF(iconX, iconY, iconD, iconD), sf);
             }

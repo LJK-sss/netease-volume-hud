@@ -14,13 +14,13 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 
 | | `LevelBand.exe`（完整版） | `LevelBand-lite.exe`（轻量版） |
 |---|---|---|
-| 体积 | 437 KB | **283 KB** |
+| 体积 | 384 KB | **231 KB** |
 | 窗口 | 196 × 130 | **196 × 76** |
 | 顶边小人 | 有（31 帧 / 6 个动作） | 完全没有 |
 | 挂钟 / 频谱 / 歌名滚动 / 深浅主题 | 有 | 有 |
 | 音量与 dB 显示 | 有 | 有 |
 
-两版功能完全一致，只差顶部那个装饰用的角色。轻量版省下的 154 KB 全部是那张精灵图。
+两版功能完全一致，只差顶部那个装饰用的角色。轻量版省下的 153 KB 全部是那张精灵图。
 
 | 完整版 | 轻量版 |
 |---|---|
@@ -133,7 +133,7 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 按顺序帮我处理，做完一步报一步的结果，不要跳步：
 
 1. 先只读、不改任何东西：报告文件大小、SHA256、以及是否带「来自网络」标记
-   （Zone.Identifier 数据流）。完整版预期 437.5 KB，轻量版 283.5 KB。
+   （Zone.Identifier 数据流）。完整版预期 384 KB，轻量版 230.5 KB。
 2. 不要删除、不要重命名、不要移动到别的目录。用 Unblock-File 去掉「来自网络」标记。
 3. 如果 Windows Defender 已经把它隔离或删除了，从「保护历史记录」里还原，再重做第 2 步。
 4. 处理完告诉我怎么双击运行。如果还提示，把这个 exe 所在目录加进 Defender 排除项，
@@ -155,11 +155,11 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 
 **自己编译是最彻底的办法。** 区别在于：去标记是「让 Windows 别管这个文件」，自己编译是「这个文件从来没被下载过」。前者一分钟，后者一劳永逸。
 
-**核对哈希**（确认下载完整、没被篡改；用 `certutil -hashfile <文件名> SHA256` 或 PowerShell 的 `Get-FileHash`）。下面是 v0.2.1 附件的值，重新编译出来的会不一样：
+**核对哈希**（确认下载完整、没被篡改；用 `certutil -hashfile <文件名> SHA256` 或 PowerShell 的 `Get-FileHash`）。下面是 v0.2.2 附件的值，重新编译出来的会不一样：
 
 ```text
-LevelBand.exe       239883c2b8ca9c298524191368a7ae03c4528beb5f00c1197e407d8d0f802591
-LevelBand-lite.exe  60e584edaa3016226634965a5fd9ccf4c2d174dadcd75495691e123b2d423ab5
+LevelBand.exe       1be7a482ca103059caaaef950f16433dc16f5799990753ea71f61b3ca7396d38
+LevelBand-lite.exe  e161910391d1ceb55947920ab6e90a0e2e6bb1fd67cf61093ae281cce8ff3be2
 ```
 
 ### 操作
@@ -177,7 +177,7 @@ LevelBand-lite.exe  60e584edaa3016226634965a5fd9ccf4c2d174dadcd75495691e123b2d42
 
 ### 添加头像
 
-**第一次运行后，程序会自动在 exe 旁边建出 `artwork` 文件夹，里面还带一张说明 `把图片放这里.txt`**，所以正常情况下你不用自己动手建。它只在目录不存在时创建一次——你把那个说明文件删了，不会被重建。
+**第一次运行后，程序会自动在 exe 旁边建出 `artwork` 文件夹，里面还带一张说明 `把图片放这里.txt`**，所以正常情况下你不用自己动手建。没有图的时候，封面位置显示的是和程序图标同款的那个音符方块。它只在目录不存在时创建一次——你把那个说明文件删了，不会被重建。
 
 想换成自己的图：
 
@@ -196,7 +196,7 @@ LevelBand-lite.exe  60e584edaa3016226634965a5fd9ccf4c2d174dadcd75495691e123b2d42
 - 文件夹在 **exe 同级**，不是 `%APPDATA%\LevelBand` 那个配置目录
 - 名字是 `artwork`，不是 `artworks`、`artwork2`（Windows 不区分大小写，但 `Artworks` 一样不认）
 - **不会读子文件夹**，图片要平铺在 `artwork` 下
-- 把图全删掉不会出错，会自动回落到内置头像
+- 把图全删掉不会出错，会自动回落到内置的音符占位图
 - 换 exe 位置时记得把 `artwork` 一起搬走，否则会以为图丢了
 
 ### 参数
@@ -220,7 +220,7 @@ LevelBand-lite.exe  60e584edaa3016226634965a5fd9ccf4c2d174dadcd75495691e123b2d42
     config.ini    参数、窗口位置
     log.txt       运行日志（启动清空；单次运行超 1 MB 自动清空）
     songs.ini     按歌缓存
-artwork\          头像图（可选，见上文「添加头像」；不建则用内置头像）
+artwork\          头像图（可选，见上文「添加头像」；不建则显示音符占位）
 ```
 
 删掉 `songs.ini` 即可清空所有学习结果。
@@ -266,7 +266,7 @@ A tiny HUD that keeps **one app's audio** inside a loudness band you define — 
 
 ### Two builds
 
-`LevelBand.exe` (437 KB, 196×130) carries a small animated character sitting on the card's top edge; `LevelBand-lite.exe` (283 KB, 196×76) is exactly the same HUD without it. Everything else — clock, spectrum, marquee title, light/dark themes, loudness display — is identical.
+`LevelBand.exe` (384 KB, 196×130) carries a small animated character sitting on the card's top edge; `LevelBand-lite.exe` (231 KB, 196×76) is exactly the same HUD without it. Everything else — clock, spectrum, marquee title, light/dark themes, loudness display — is identical.
 
 ### Why
 
@@ -290,7 +290,7 @@ Controls: drag to move, click/drag only the bottom bar strip to set volume, **Ct
 
 ### Adding your own artwork
 
-**On first run the program creates an `artwork` folder next to the exe, with a short readme inside it** — so you normally don't have to create anything yourself. It is only created when the folder is missing, and once created it is never touched again (delete the readme and it stays deleted).
+**On first run the program creates an `artwork` folder next to the exe, with a short readme inside it** — so you normally don't have to create anything yourself. With no images present, the cover slot shows the same note tile as the app icon. It is only created when the folder is missing, and once created it is never touched again (delete the readme and it stays deleted).
 
 To use your own images:
 
@@ -309,7 +309,7 @@ Common trip-ups:
 - The folder goes next to the **exe**, not in the `%APPDATA%\LevelBand` config directory
 - It must be `artwork` — not `artworks`, not `artwork2`
 - **Subfolders are not scanned**; images must sit directly inside `artwork`
-- Deleting every image is harmless — it falls back to the built-in cover
+- Deleting every image is harmless — it falls back to the built-in note tile
 - If you move the exe, move `artwork` with it
 
 #### Blocked by Windows? Let an AI fix it
@@ -329,7 +329,7 @@ Work through this in order, reporting the result of each step before moving on:
 
 1. Read-only first, change nothing: report the file size, its SHA256, and whether it
    carries the "from the internet" mark (Zone.Identifier stream).
-   Expected size: 437.5 KB full build, 283.5 KB lite build.
+   Expected size: 384 KB full build, 230.5 KB lite build.
 2. Do not delete it, rename it, or move it to another folder. Strip the internet mark
    with Unblock-File.
 3. If Windows Defender already quarantined or removed it, restore it from Protection
@@ -353,11 +353,11 @@ The prompt works in one shot because the steps are ordered by dependency: read-o
 
 Building from source is the permanent fix — the difference being that stripping the mark asks Windows to ignore the file, while building locally means the file was never downloaded in the first place.
 
-Verify the download with `Get-FileHash <file> -Algorithm SHA256` (`certutil -hashfile <file> SHA256` also works). These are the v0.2.1 assets; a rebuild will produce different values:
+Verify the download with `Get-FileHash <file> -Algorithm SHA256` (`certutil -hashfile <file> SHA256` also works). These are the v0.2.2 assets; a rebuild will produce different values:
 
 ```text
-LevelBand.exe       239883c2b8ca9c298524191368a7ae03c4528beb5f00c1197e407d8d0f802591
-LevelBand-lite.exe  60e584edaa3016226634965a5fd9ccf4c2d174dadcd75495691e123b2d423ab5
+LevelBand.exe       1be7a482ca103059caaaef950f16433dc16f5799990753ea71f61b3ca7396d38
+LevelBand-lite.exe  e161910391d1ceb55947920ab6e90a0e2e6bb1fd67cf61093ae281cce8ff3be2
 ```
 
 ### Build

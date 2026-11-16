@@ -50,8 +50,7 @@ function Invoke-Build {
 
     $cscArgs = @(
         '/nologo', '/target:winexe', '/platform:x64', '/unsafe', '/optimize+', '/nowarn:1591',
-        "/win32icon:$srcDir\app.ico",
-        "/resource:$srcDir\avatar.png"
+        "/win32icon:$srcDir\app.ico"
     )
     if ($IsLite) {
         $cscArgs += '/define:NOWHALE'

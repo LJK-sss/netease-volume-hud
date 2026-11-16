@@ -186,8 +186,8 @@ namespace NvHud
             try
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                Artwork.Load(artDir, Renderer.EmbeddedAvatar);
-                Log.W("头像加载: " + Artwork.Count + " 张，耗时 " + sw.ElapsedMilliseconds + " ms" + (Artwork.Count == 0 ? "（使用内置）" : ""));
+                Artwork.Load(artDir, null);   // 没有自定义图就让 Renderer 画内置音符方块
+                Log.W("头像加载: " + Artwork.Count + " 张，耗时 " + sw.ElapsedMilliseconds + " ms" + (Artwork.Count == 0 ? "（无自定义图，显示音符）" : ""));
             }
             catch (Exception ex) { Log.W("头像加载失败: " + ex.Message); }
 
