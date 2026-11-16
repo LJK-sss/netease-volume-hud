@@ -1302,7 +1302,9 @@ namespace NvHud
             if (args.Length > 0 && args[0] == "--render")
             {
                 string dir = args.Length > 1 ? args[1] : ".";
-                RenderToFiles(dir);
+                // 第二个参数可选 light / dark，用来出 README 截图
+                bool light = args.Length > 2 && string.Equals(args[2], "light", StringComparison.OrdinalIgnoreCase);
+                RenderToFiles(dir, light);
                 return;
             }
             if (args.Length > 0 && args[0] == "--selftest")
@@ -1352,16 +1354,17 @@ namespace NvHud
             }
         }
 
-        private static void RenderToFiles(string dir)
+        private static void RenderToFiles(string dir, bool light)
         {
             try { Directory.CreateDirectory(dir); } catch { }
+            Theme.Light = light;
             float[] scales = new float[] { 1f, 2f };
             foreach (float sc in scales)
             {
-                RenderState(dir, "normal", sc, false, false, false, 42, "灰色轨迹 - Beyond", -27.8f);
-                RenderState(dir, "hover", sc, true, false, false, 42, "灰色轨迹 - Beyond", -27.3f);
-                RenderState(dir, "mute", sc, false, true, false, 42, "灰色轨迹 - Beyond", -27.3f);
-                RenderState(dir, "offline", sc, false, false, true, 0, "灰色轨迹 - Beyond", float.NaN);
+                RenderState(dir, "normal", sc, false, false, false, 42, "灰色轨迹", -27.8f);
+                RenderState(dir, "hover", sc, true, false, false, 42, "灰色轨迹", -27.3f);
+                RenderState(dir, "mute", sc, false, true, false, 42, "灰色轨迹", -27.3f);
+                RenderState(dir, "offline", sc, false, false, true, 0, "灰色轨迹", float.NaN);
             }
             Log.W("render -> " + dir);
         }
@@ -1391,6 +1394,23 @@ namespace NvHud
                 st.Title = title;
                 st.LoudDb = loudDb;
                 st.ShowControls = controls;
+
+                // 离屏渲染没有音频流，补一组形状可信的假频谱，
+                // 否则截图里卡片中间是空的——频谱正是这个小挂件的主角。
+                if (!offline)
+                {
+                    var bars = new float[44];
+                    for (int i = 0; i < bars.Length; i++)
+                    {
+                        float t = i / (float)(bars.Length - 1);
+                        // 低频略高、高频略低，再叠两个不同周期的小波动 → 像真实频谱而不是台阶
+                        float v = 0.80f - 0.20f * t
+                                + 0.11f * (float)Math.Sin(i * 0.9)
+                                + 0.06f * (float)Math.Sin(i * 2.7 + 1.3f);
+                        bars[i] = Math.Max(0.16f, Math.Min(0.94f, v));
+                    }
+                    st.Spectrum = bars;
+                }
 
                 var save = g.Save();
                 g.TranslateTransform(pad, pad);
