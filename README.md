@@ -14,7 +14,7 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 
 | | `LevelBand.exe`（完整版） | `LevelBand-lite.exe`（轻量版） |
 |---|---|---|
-| 体积 | 436 KB | **282 KB** |
+| 体积 | 437 KB | **283 KB** |
 | 窗口 | 196 × 130 | **196 × 76** |
 | 顶边小人 | 有（31 帧 / 6 个动作） | 完全没有 |
 | 挂钟 / 频谱 / 歌名滚动 / 深浅主题 | 有 | 有 |
@@ -133,7 +133,7 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 按顺序帮我处理，做完一步报一步的结果，不要跳步：
 
 1. 先只读、不改任何东西：报告文件大小、SHA256、以及是否带「来自网络」标记
-   （Zone.Identifier 数据流）。完整版预期 436.5 KB，轻量版 282.5 KB。
+   （Zone.Identifier 数据流）。完整版预期 437.5 KB，轻量版 283.5 KB。
 2. 不要删除、不要重命名、不要移动到别的目录。用 Unblock-File 去掉「来自网络」标记。
 3. 如果 Windows Defender 已经把它隔离或删除了，从「保护历史记录」里还原，再重做第 2 步。
 4. 处理完告诉我怎么双击运行。如果还提示，把这个 exe 所在目录加进 Defender 排除项，
@@ -155,11 +155,11 @@ A tiny always-on-top HUD that keeps **one app's audio** (Netease Cloud Music by 
 
 **自己编译是最彻底的办法。** 区别在于：去标记是「让 Windows 别管这个文件」，自己编译是「这个文件从来没被下载过」。前者一分钟，后者一劳永逸。
 
-**核对哈希**（确认下载完整、没被篡改；用 `certutil -hashfile <文件名> SHA256` 或 PowerShell 的 `Get-FileHash`）。下面是 v0.2.0 附件的值，重新编译出来的会不一样：
+**核对哈希**（确认下载完整、没被篡改；用 `certutil -hashfile <文件名> SHA256` 或 PowerShell 的 `Get-FileHash`）。下面是 v0.2.1 附件的值，重新编译出来的会不一样：
 
 ```text
-LevelBand.exe       657b21fd72dcd0bcf42609398f6672fbfce1c56ab3fcce7f6fc34baf9c59bb25
-LevelBand-lite.exe  d0d5dfedd17f64e7fb53b6eb628c5fc11f4171b01a496252456e6b1ece731369
+LevelBand.exe       239883c2b8ca9c298524191368a7ae03c4528beb5f00c1197e407d8d0f802591
+LevelBand-lite.exe  60e584edaa3016226634965a5fd9ccf4c2d174dadcd75495691e123b2d423ab5
 ```
 
 ### 操作
@@ -177,11 +177,15 @@ LevelBand-lite.exe  d0d5dfedd17f64e7fb53b6eb628c5fc11f4171b01a496252456e6b1ece73
 
 ### 添加头像
 
-**下载包里没有 `artwork` 文件夹，那是有意留空的**——它是可选的，不建就用内置的那张默认头像。想用自己的图，手动建一个就行：
+**第一次运行后，程序会自动在 exe 旁边建出 `artwork` 文件夹，里面还带一张说明 `把图片放这里.txt`**，所以正常情况下你不用自己动手建。它只在目录不存在时创建一次——你把那个说明文件删了，不会被重建。
 
-1. 在 **exe 同一个目录**下新建文件夹，名字叫 `artwork`
+想换成自己的图：
+
+1. 在 **exe 同一个目录**下找到 `artwork`（真没有就自己建一个，名字必须叫这个）
 2. 图片直接丢进去。不用改名、不用编号、不用管顺序
 3. 不用重启。程序在监听这个目录，进去几秒内就会被发现，新图插到下一张轮换
+
+如果 exe 放在 `Program Files` 这类只读目录里，自动创建会失败（日志里有一行「创建头像目录失败」），这时手动建也是同样的效果。
 
 支持 `jpg` / `jpeg` / `png` / `bmp` / `gif`（gif 只取第一帧）。每 30 秒换一张，300ms 淡入淡出。
 
@@ -262,7 +266,7 @@ A tiny HUD that keeps **one app's audio** inside a loudness band you define — 
 
 ### Two builds
 
-`LevelBand.exe` (436 KB, 196×130) carries a small animated character sitting on the card's top edge; `LevelBand-lite.exe` (282 KB, 196×76) is exactly the same HUD without it. Everything else — clock, spectrum, marquee title, light/dark themes, loudness display — is identical.
+`LevelBand.exe` (437 KB, 196×130) carries a small animated character sitting on the card's top edge; `LevelBand-lite.exe` (283 KB, 196×76) is exactly the same HUD without it. Everything else — clock, spectrum, marquee title, light/dark themes, loudness display — is identical.
 
 ### Why
 
@@ -286,11 +290,15 @@ Controls: drag to move, click/drag only the bottom bar strip to set volume, **Ct
 
 ### Adding your own artwork
 
-**The download does not contain an `artwork` folder — that is deliberate.** The folder is optional; without it the widget uses the single cover baked into the exe. To use your own images:
+**On first run the program creates an `artwork` folder next to the exe, with a short readme inside it** — so you normally don't have to create anything yourself. It is only created when the folder is missing, and once created it is never touched again (delete the readme and it stays deleted).
 
-1. Create a folder named `artwork` **next to the exe**
+To use your own images:
+
+1. Find `artwork` **next to the exe** (if it isn't there, create it — the name must match)
 2. Drop images in. No renaming, no numbering, no ordering needed
 3. No restart required — the folder is watched, and a new image joins the rotation right after the current one
+
+If the exe lives somewhere read-only such as `Program Files`, the automatic creation fails (the log records 「创建头像目录失败」) and creating the folder by hand works just the same.
 
 `jpg` / `jpeg` / `png` / `bmp` / `gif` are supported (gif uses the first frame only). Rotation is every 30 seconds with a 300 ms cross-fade.
 
@@ -321,7 +329,7 @@ Work through this in order, reporting the result of each step before moving on:
 
 1. Read-only first, change nothing: report the file size, its SHA256, and whether it
    carries the "from the internet" mark (Zone.Identifier stream).
-   Expected size: 436.5 KB full build, 282.5 KB lite build.
+   Expected size: 437.5 KB full build, 283.5 KB lite build.
 2. Do not delete it, rename it, or move it to another folder. Strip the internet mark
    with Unblock-File.
 3. If Windows Defender already quarantined or removed it, restore it from Protection
@@ -345,11 +353,11 @@ The prompt works in one shot because the steps are ordered by dependency: read-o
 
 Building from source is the permanent fix — the difference being that stripping the mark asks Windows to ignore the file, while building locally means the file was never downloaded in the first place.
 
-Verify the download with `Get-FileHash <file> -Algorithm SHA256` (`certutil -hashfile <file> SHA256` also works). These are the v0.2.0 assets; a rebuild will produce different values:
+Verify the download with `Get-FileHash <file> -Algorithm SHA256` (`certutil -hashfile <file> SHA256` also works). These are the v0.2.1 assets; a rebuild will produce different values:
 
 ```text
-LevelBand.exe       657b21fd72dcd0bcf42609398f6672fbfce1c56ab3fcce7f6fc34baf9c59bb25
-LevelBand-lite.exe  d0d5dfedd17f64e7fb53b6eb628c5fc11f4171b01a496252456e6b1ece731369
+LevelBand.exe       239883c2b8ca9c298524191368a7ae03c4528beb5f00c1197e407d8d0f802591
+LevelBand-lite.exe  60e584edaa3016226634965a5fd9ccf4c2d174dadcd75495691e123b2d423ab5
 ```
 
 ### Build

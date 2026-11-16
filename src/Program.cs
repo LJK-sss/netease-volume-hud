@@ -15,6 +15,19 @@ namespace NvHud
     {
         private const string ProccessName = "cloudmusic.exe";
 
+        /// <summary>首次创建 artwork 目录时写进目录里的说明，告诉用户这文件夹是干嘛的。</summary>
+        private const string ArtworkHint =
+            "把要轮播的封面图放在这个文件夹里就行。\r\n" +
+            "\r\n" +
+            "支持 jpg / jpeg / png / bmp / gif（gif 只取第一帧）\r\n" +
+            "不用改名、不用编号、不用管顺序，每 30 秒换一张\r\n" +
+            "尺寸不用处理，会自动居中裁成正方形再套圆角（太靠边的构图会被裁掉）\r\n" +
+            "\r\n" +
+            "想立刻切到某一张：右键点挂件上的封面，弹出选择器\r\n" +
+            "\r\n" +
+            "放好图片不用重启，程序在监听这个目录，几秒内就会生效。\r\n" +
+            "这个 txt 可以直接删掉，不影响使用。";
+
         private Config _cfg;
         private Overlay _overlay;
         private AudioSession _session;
@@ -151,6 +164,25 @@ namespace NvHud
 
             // 头像轮换：exe 同级 artwork\ 文件夹，每 30 秒换一张（300ms 淡入淡出）
             string artDir = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath) ?? ".", "artwork");
+
+            // 目录不存在就先建出来，并塞一张说明。
+            // 只写文档没用——用户得先在资源管理器里看见这个文件夹，才会想到往里放图。
+            // 只在「目录本来不存在」时写说明，用户删掉了不会被反复重建。
+            try
+            {
+                if (!Directory.Exists(artDir))
+                {
+                    Directory.CreateDirectory(artDir);
+                    try
+                    {
+                        File.WriteAllText(Path.Combine(artDir, "把图片放这里.txt"), ArtworkHint, new System.Text.UTF8Encoding(true));
+                    }
+                    catch { }   // 说明写不进去不影响主流程
+                    Log.W("已创建头像目录: " + artDir);
+                }
+            }
+            catch (Exception ex) { Log.W("创建头像目录失败: " + ex.Message); }
+
             try
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
