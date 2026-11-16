@@ -50,6 +50,22 @@
   build.cmd -Lite      编译轻量版  -> dist\LevelBand-lite.exe
   build.cmd -All       两个都编
 
+【怎么加自己的头像】
+下载包里没有 artwork 文件夹，这是故意的：不建就用内置的那张默认头像。
+想换成自己的图：
+  1. 在 exe 同一个目录下新建文件夹，名字叫 artwork
+  2. 图片直接丢进去，不用改名、不用编号、不用管顺序
+  3. 不用重启，程序在监听这个目录，几秒内就会被发现
+
+支持 jpg / jpeg / png / bmp / gif（gif 只取第一帧），每 30 秒换一张。
+尺寸不用处理，会自动居中裁成正方形再套圆角；但构图太靠边的部分会被裁掉。
+想立刻换某一张：右键点封面，弹出选择器，点哪张换哪张。
+
+注意：
+  - 是 exe 同级目录，不是 %APPDATA%\LevelBand 那个配置目录
+  - 名字必须是 artwork，不读子文件夹
+  - 全删掉不会出错，会回落到内置头像
+
 【两个版本的区别】
   LevelBand.exe       436 KB  窗口 196x130  卡片顶边有一个会动的小人
   LevelBand-lite.exe  282 KB  窗口 196x76   没有小人，其余完全一致
@@ -63,4 +79,4 @@
 
 【数据位置】
 %APPDATA%\LevelBand\   （config.ini / songs.ini / log.txt）
-头像图放在 exe 同级的 artwork\ 目录里，按修改时间轮播。
+头像图是可选的，放在 exe 同级的 artwork\ 目录里（见上面「怎么加自己的头像」）。

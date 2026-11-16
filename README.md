@@ -170,9 +170,30 @@ LevelBand-lite.exe  d0d5dfedd17f64e7fb53b6eb628c5fc11f4171b01a496252456e6b1ece73
 | 左键点击/拖动**底部音量条** | 调音量（只有这一条能调） |
 | **Ctrl + ↑ / ↓** | ±2%（仅鼠标停在小窗上时生效） |
 | 中键 | 静音切换 |
+| **右键点封面** | 头像选择器（立刻切到某一张） |
 | 左键点右侧菜单图标 | 参数面板 |
 | 右键点右侧菜单图标 | 快捷菜单 |
 | 悬停后点 × | 退出 |
+
+### 添加头像
+
+**下载包里没有 `artwork` 文件夹，那是有意留空的**——它是可选的，不建就用内置的那张默认头像。想用自己的图，手动建一个就行：
+
+1. 在 **exe 同一个目录**下新建文件夹，名字叫 `artwork`
+2. 图片直接丢进去。不用改名、不用编号、不用管顺序
+3. 不用重启。程序在监听这个目录，进去几秒内就会被发现，新图插到下一张轮换
+
+支持 `jpg` / `jpeg` / `png` / `bmp` / `gif`（gif 只取第一帧）。每 30 秒换一张，300ms 淡入淡出。
+
+**不需要处理尺寸**。任何长宽比都会被居中裁成正方形，再套上 30% 圆角——竖图横图都能直接用，但边缘会被裁掉一部分，所以构图太靠边的图效果不好。想立刻看某一张：右键点封面，弹出选择器，点哪张换哪张。
+
+几个实际容易踩的点：
+
+- 文件夹在 **exe 同级**，不是 `%APPDATA%\LevelBand` 那个配置目录
+- 名字是 `artwork`，不是 `artworks`、`artwork2`（Windows 不区分大小写，但 `Artworks` 一样不认）
+- **不会读子文件夹**，图片要平铺在 `artwork` 下
+- 把图全删掉不会出错，会自动回落到内置头像
+- 换 exe 位置时记得把 `artwork` 一起搬走，否则会以为图丢了
 
 ### 参数
 
@@ -195,7 +216,7 @@ LevelBand-lite.exe  d0d5dfedd17f64e7fb53b6eb628c5fc11f4171b01a496252456e6b1ece73
     config.ini    参数、窗口位置
     log.txt       运行日志（启动清空；单次运行超 1 MB 自动清空）
     songs.ini     按歌缓存
-artwork\          头像图（放在 exe 同级目录，按修改时间轮播）
+artwork\          头像图（可选，见上文「添加头像」；不建则用内置头像）
 ```
 
 删掉 `songs.ini` 即可清空所有学习结果。
@@ -261,7 +282,27 @@ LevelBand fixes exactly that: **one app, per-song memory, and no action at all w
 
 Download `LevelBand.exe` from `dist/` or Releases and double-click. Requires Windows 10/11 x64 with .NET Framework 4.8 (preinstalled). The window is always-on-top but only re-asserts itself every 15 seconds, so full-screen screen-capture tools (WeChat/QQ) are not disturbed.
 
-Controls: drag to move, click/drag only the bottom bar strip to set volume, **Ctrl + ↑/↓** while hovering for ±2%, middle-click to mute, left-click the menu icon for settings, right-click it for the quick menu. Long track titles scroll slowly, all the time.
+Controls: drag to move, click/drag only the bottom bar strip to set volume, **Ctrl + ↑/↓** while hovering for ±2%, middle-click to mute, right-click the cover for the artwork picker, left-click the menu icon for settings, right-click it for the quick menu. Long track titles scroll slowly, all the time.
+
+### Adding your own artwork
+
+**The download does not contain an `artwork` folder — that is deliberate.** The folder is optional; without it the widget uses the single cover baked into the exe. To use your own images:
+
+1. Create a folder named `artwork` **next to the exe**
+2. Drop images in. No renaming, no numbering, no ordering needed
+3. No restart required — the folder is watched, and a new image joins the rotation right after the current one
+
+`jpg` / `jpeg` / `png` / `bmp` / `gif` are supported (gif uses the first frame only). Rotation is every 30 seconds with a 300 ms cross-fade.
+
+**You don't need to resize anything.** Any aspect ratio is centre-cropped to a square and masked with a 30% corner radius, so portraits and landscapes both work — but the edges do get cut, so compositions with important detail near the border will lose it. To jump straight to a specific image, right-click the cover and pick from the panel.
+
+Common trip-ups:
+
+- The folder goes next to the **exe**, not in the `%APPDATA%\LevelBand` config directory
+- It must be `artwork` — not `artworks`, not `artwork2`
+- **Subfolders are not scanned**; images must sit directly inside `artwork`
+- Deleting every image is harmless — it falls back to the built-in cover
+- If you move the exe, move `artwork` with it
 
 #### Blocked by Windows? Let an AI fix it
 
